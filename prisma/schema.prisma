@@ -1,0 +1,396 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ──────────────────────────────────────────────────────
+
+enum TenantStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  SERVED
+}
+
+enum OrderStatus {
+  PENDING
+  IN_KITCHEN
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+enum TicketStatus {
+  ACTIVE
+  READY
+  ARCHIVED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  MANUAL
+}
+
+enum DiscountStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+// ─── Tenant ─────────────────────────────────────────────────────
+
+model Tenant {
+  id              String       @id @default(uuid())
+  name            String
+  industry        String       @default("restaurant")
+  subscriptionFee Float        @default(0)
+  status          TenantStatus @default(ACTIVE)
+  lastSync        DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  users           User[]
+  roles           Role[]
+  products        Product[]
+  menus           Menu[]
+  tables          Table[]
+  orders          Order[]
+  tickets         Ticket[]
+  payments        Payment[]
+  discountRequests DiscountRequest[]
+  supportTickets  SupportTicket[]
+  devices         Device[]
+
+  @@map("tenants")
+}
+
+// ─── Role ───────────────────────────────────────────────────────
+
+model Role {
+  id        String   @id @default(uuid())
+  name      String
+  tenantId  String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  users     User[]
+
+  @@index([tenantId])
+  @@unique([name, tenantId])
+  @@map("roles")
+}
+
+// ─── User ───────────────────────────────────────────────────────
+
+model User {
+  id        String     @id @default(uuid())
+  name      String
+  pin       String
+  roleId    String
+  tenantId  String
+  status    UserStatus @default(ACTIVE)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  role      Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orders    Order[]    @relation("CreatedByUser")
+  discountRequests DiscountRequest[]
+
+  @@index([tenantId])
+  @@index([pin, tenantId])
+  @@map("users")
+}
+
+// ─── Product ────────────────────────────────────────────────────
+
+model Product {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  sku       String?
+  barcode   String?
+  price     Float
+  stock     Int      @default(0)
+  lowStockThreshold Int @default(10)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  stockLogs StockLog[]
+  menuItems MenuItem[]
+
+  @@index([tenantId])
+  @@unique([sku, tenantId])
+  @@map("products")
+}
+
+// ─── Stock Log ──────────────────────────────────────────────────
+
+model StockLog {
+  id        String   @id @default(uuid())
+  productId String
+  change    Int
+  reason    String
+  createdAt DateTime @default(now())
+
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("stock_logs")
+}
+
+// ─── Menu ───────────────────────────────────────────────────────
+
+model Menu {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items     MenuItem[]
+
+  @@index([tenantId])
+  @@map("menus")
+}
+
+// ─── Menu Item ──────────────────────────────────────────────────
+
+model MenuItem {
+  id            String  @id @default(uuid())
+  menuId        String
+  productId     String
+  priceOverride Float?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  menu          Menu     @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  properties    MenuItemProperty[]
+  orderItems    OrderItem[]
+
+  @@index([menuId])
+  @@index([productId])
+  @@map("menu_items")
+}
+
+// ─── Menu Item Property ─────────────────────────────────────────
+
+model MenuItemProperty {
+  id         String   @id @default(uuid())
+  menuItemId String
+  name       String
+  extraPrice Float    @default(0)
+  createdAt  DateTime @default(now())
+
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@index([menuItemId])
+  @@map("menu_item_properties")
+}
+
+// ─── Table ──────────────────────────────────────────────────────
+
+model Table {
+  id          String      @id @default(uuid())
+  tenantId    String
+  tableNumber Int
+  seatCount   Int         @default(4)
+  status      TableStatus @default(AVAILABLE)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orders      Order[]
+
+  @@index([tenantId])
+  @@unique([tableNumber, tenantId])
+  @@map("tables")
+}
+
+// ─── Order ──────────────────────────────────────────────────────
+
+model Order {
+  id         String      @id @default(uuid())
+  tenantId   String
+  tableId    String
+  status     OrderStatus @default(PENDING)
+  createdBy  String
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  table      Table       @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  user       User        @relation("CreatedByUser", fields: [createdBy], references: [id], onDelete: Cascade)
+  items      OrderItem[]
+  tickets    Ticket[]
+  payments   Payment[]
+  discountRequests DiscountRequest[]
+
+  @@index([tenantId])
+  @@index([tableId])
+  @@index([createdBy])
+  @@map("orders")
+}
+
+// ─── Order Item ─────────────────────────────────────────────────
+
+model OrderItem {
+  id         String   @id @default(uuid())
+  orderId    String
+  menuItemId String
+  quantity   Int      @default(1)
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem   MenuItem   @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  ticketItems TicketItem[]
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+// ─── Ticket ─────────────────────────────────────────────────────
+
+model Ticket {
+  id        String       @id @default(uuid())
+  orderId   String
+  tenantId  String
+  status    TicketStatus @default(ACTIVE)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  order     Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items     TicketItem[]
+
+  @@index([tenantId])
+  @@index([orderId])
+  @@map("tickets")
+}
+
+// ─── Ticket Item ────────────────────────────────────────────────
+
+model TicketItem {
+  id          String    @id @default(uuid())
+  ticketId    String
+  orderItemId String
+
+  ticket      Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("ticket_items")
+}
+
+// ─── Payment ────────────────────────────────────────────────────
+
+model Payment {
+  id        String        @id @default(uuid())
+  orderId   String
+  tenantId  String
+  amount    Float
+  status    PaymentStatus @default(PENDING)
+  method    PaymentMethod @default(CASH)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  order     Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  tenant    Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([orderId])
+  @@map("payments")
+}
+
+// ─── Discount Request ───────────────────────────────────────────
+
+model DiscountRequest {
+  id          String         @id @default(uuid())
+  orderId     String
+  tenantId    String
+  requestedBy String
+  amount      Float
+  reason      String?
+  status      DiscountStatus @default(PENDING)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  order       Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User           @relation(fields: [requestedBy], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([orderId])
+  @@map("discount_requests")
+}
+
+// ─── Support Ticket ─────────────────────────────────────────────
+
+model SupportTicket {
+  id        String              @id @default(uuid())
+  tenantId  String
+  subject   String
+  message   String
+  status    SupportTicketStatus @default(OPEN)
+  response  String?
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  tenant    Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("support_tickets")
+}
+
+// ─── Device ─────────────────────────────────────────────────────
+
+model Device {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  isActive  Boolean  @default(true)
+  lastSeen  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("devices")
+}
