@@ -10,9 +10,27 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
+  async getTenants() {
+    return this.prisma.tenant.findMany({
+      where: { status: 'ACTIVE' },
+      select: { id: true, name: true, status: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getTenantUsers(tenantId: string) {
+    return this.prisma.user.findMany({
+      where: { tenantId, status: 'ACTIVE' },
+      include: {
+        role: { select: { id: true, name: true, isActive: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async pinLogin(dto: PinLoginDto) {
     const user = (await this.prisma.user.findFirst({
-      where: { pin: dto.pin, status: 'ACTIVE' },
+      where: { pin: dto.pin, tenantId: dto.tenantId, status: 'ACTIVE' },
       include: { role: true },
     })) as any;
 

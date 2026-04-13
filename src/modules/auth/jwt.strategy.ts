@@ -17,7 +17,29 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub: string; tenantId: string; role: string; name: string }) {
+  async validate(payload: { sub: string; tenantId?: string; role: string; name?: string; email?: string }) {
+    // Handle admin tokens
+    if (payload.role === 'admin') {
+      const admin = await this.prisma.admin.findFirst({
+        where: { id: payload.sub, status: 'ACTIVE' },
+      });
+
+      if (!admin) {
+        throw new UnauthorizedException('Admin not found or inactive');
+      }
+
+      return {
+        sub: admin.id,
+        email: admin.email,
+        role: 'admin',
+      };
+    }
+
+    // Handle user tokens
+    if (!payload.tenantId) {
+      throw new UnauthorizedException('Missing tenant ID in token');
+    }
+
     const user = (await this.prisma.user.findFirst({
       where: {
         id: payload.sub,

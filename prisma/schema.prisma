@@ -133,6 +133,20 @@ model User {
   @@map("users")
 }
 
+// ─── Admin ──────────────────────────────────────────────────────
+
+model Admin {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("admins")
+}
+
 // ─── Product ────────────────────────────────────────────────────
 
 model Product {
