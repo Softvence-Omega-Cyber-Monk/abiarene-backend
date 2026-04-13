@@ -20,7 +20,11 @@ export class AuthService {
 
   async getTenantUsers(tenantId: string) {
     return this.prisma.user.findMany({
-      where: { tenantId, status: 'ACTIVE' },
+      where: {
+        tenantId,
+        status: 'ACTIVE',
+        role: { is: { isActive: true } },
+      },
       include: {
         role: { select: { id: true, name: true, isActive: true } },
       },

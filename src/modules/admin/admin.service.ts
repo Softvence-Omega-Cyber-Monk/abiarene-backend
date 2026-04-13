@@ -1,7 +1,16 @@
-import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { AdminSignupDto, AdminLoginDto, CreateTenantDto } from './admin.dto.js';
+import {
+  AdminSignupDto,
+  AdminLoginDto,
+  CreateTenantDto,
+  CreateTenantRoleDto,
+  ListTenantRolesDto,
+  CreateTenantUserDto,
+  ListTenantUsersDto,
+} from './admin.dto.js';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -93,6 +102,103 @@ export class AdminService {
     return { data: tenants, total, page, limit };
   }
 
+  async createTenantRole(tenantId: string, dto: CreateTenantRoleDto) {
+    await this.ensureTenantExists(tenantId);
+
+    try {
+      return await this.prisma.role.create({
+        data: {
+          name: dto.name,
+          isActive: dto.isActive ?? true,
+          tenantId,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new BadRequestException('Role name already exists for this tenant');
+      }
+
+      throw error;
+    }
+  }
+
+  async listTenantRoles(tenantId: string, dto: ListTenantRolesDto) {
+    await this.ensureTenantExists(tenantId);
+
+    const [roles, total] = await Promise.all([
+      this.prisma.role.findMany({
+        where: { tenantId },
+        skip: (dto.page - 1) * dto.limit,
+        take: dto.limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.role.count({ where: { tenantId } }),
+    ]);
+
+    return { data: roles, total, page: dto.page, limit: dto.limit };
+  }
+
+  async createTenantUser(tenantId: string, dto: CreateTenantUserDto) {
+    await this.ensureTenantExists(tenantId);
+
+    const [role, existingPinUser] = await Promise.all([
+      this.prisma.role.findFirst({
+        where: { id: dto.roleId, tenantId, isActive: true },
+        select: { id: true },
+      }),
+      this.prisma.user.findFirst({
+        where: { tenantId, pin: dto.pin },
+        select: { id: true },
+      }),
+    ]);
+
+    if (!role) {
+      throw new BadRequestException('Role not found for this tenant or inactive');
+    }
+
+    if (existingPinUser) {
+      throw new BadRequestException('PIN already exists for this tenant');
+    }
+
+    return this.prisma.user.create({
+      data: {
+        name: dto.name,
+        pin: dto.pin,
+        roleId: dto.roleId,
+        tenantId,
+        status: dto.status ?? 'ACTIVE',
+      },
+      include: {
+        role: true,
+      },
+    });
+  }
+
+  async listTenantUsers(tenantId: string, dto: ListTenantUsersDto) {
+    await this.ensureTenantExists(tenantId);
+
+    const where = {
+      tenantId,
+      name: dto.search ? { contains: dto.search, mode: 'insensitive' as const } : undefined,
+    };
+
+    const [users, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        skip: (dto.page - 1) * dto.limit,
+        take: dto.limit,
+        include: { role: true },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return { data: users, total, page: dto.page, limit: dto.limit };
+  }
+
   async dashboard(tenantId: string) {
     const [users, orders, tickets, payments, revenue, syncIssues] = await Promise.all([
       this.prisma.user.count({ where: { tenantId } }),
@@ -108,5 +214,16 @@ export class AdminService {
       revenue: revenue._sum.amount ?? 0,
       syncIssues,
     };
+  }
+
+  private async ensureTenantExists(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { id: true },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
   }
 }

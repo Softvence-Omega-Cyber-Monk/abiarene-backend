@@ -1,4 +1,5 @@
-import { IsEmail, IsString, MinLength, IsOptional } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsBoolean, IsEmail, IsIn, IsInt, IsOptional, IsString, Length, Max, Min, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class AdminSignupDto {
@@ -40,6 +41,78 @@ export class CreateTenantDto {
   @ApiProperty({ description: 'Subscription fee', example: 129.0, required: false })
   @IsOptional()
   subscriptionFee?: number;
+}
+
+export class CreateTenantRoleDto {
+  @ApiProperty({ description: 'Role name', example: 'Manager' })
+  @IsString()
+  @MinLength(2)
+  name!: string;
+
+  @ApiProperty({ description: 'Whether role is active', example: true, required: false })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
+
+export class ListTenantRolesDto {
+  @ApiProperty({ default: 1, minimum: 1, required: false })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page = 1;
+
+  @ApiProperty({ default: 20, minimum: 1, maximum: 100, required: false })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit = 20;
+}
+
+export class CreateTenantUserDto {
+  @ApiProperty({ description: 'User full name', example: 'Jane Manager' })
+  @IsString()
+  @Length(2, 80)
+  name!: string;
+
+  @ApiProperty({ description: '4-digit PIN', example: '1234' })
+  @IsString()
+  @Length(4, 4)
+  pin!: string;
+
+  @ApiProperty({ description: 'Role ID under this tenant' })
+  @IsString()
+  roleId!: string;
+
+  @ApiProperty({ description: 'User status', example: 'ACTIVE', required: false, enum: ['ACTIVE', 'INACTIVE'] })
+  @IsOptional()
+  @IsIn(['ACTIVE', 'INACTIVE'])
+  status?: 'ACTIVE' | 'INACTIVE';
+}
+
+export class ListTenantUsersDto {
+  @ApiProperty({ default: 1, minimum: 1, required: false })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page = 1;
+
+  @ApiProperty({ default: 20, minimum: 1, maximum: 100, required: false })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit = 20;
+
+  @ApiProperty({ description: 'Search by user name', required: false })
+  @IsOptional()
+  @IsString()
+  search?: string;
 }
 
 export class AdminResponse {

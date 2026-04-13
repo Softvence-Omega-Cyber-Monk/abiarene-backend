@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { CreateUsersDto, ListUsersDto, UpdateUsersDto } from './users.dto.js';
 
@@ -6,7 +6,9 @@ import { CreateUsersDto, ListUsersDto, UpdateUsersDto } from './users.dto.js';
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  create(tenantId: string, dto: CreateUsersDto) {
+  async create(tenantId: string, dto: CreateUsersDto) {
+    await this.validateRoleAndPin(tenantId, dto.roleId, dto.pin);
+
     return this.prisma.user.create({ data: { ...dto, tenantId } });
   }
 
@@ -24,11 +26,58 @@ export class UsersService {
     return this.prisma.user.findFirst({ where: { tenantId, id }, include: { role: true } });
   }
 
-  update(tenantId: string, id: string, dto: UpdateUsersDto) {
-    return this.prisma.user.updateMany({ where: { id, tenantId }, data: dto });
+  async update(tenantId: string, id: string, dto: UpdateUsersDto) {
+    const existingUser = await this.prisma.user.findFirst({
+      where: { id, tenantId },
+      select: { id: true, pin: true, roleId: true },
+    });
+
+    if (!existingUser) {
+      return this.prisma.user.updateMany({ where: { id, tenantId }, data: dto });
+    }
+
+    await this.validateRoleAndPin(
+      tenantId,
+      dto.roleId ?? existingUser.roleId,
+      dto.pin ?? existingUser.pin,
+      id,
+    );
+
+    await this.prisma.user.updateMany({ where: { id, tenantId }, data: dto });
+    return this.read(tenantId, id);
   }
 
   delete(tenantId: string, id: string) {
     return this.prisma.user.deleteMany({ where: { id, tenantId } });
+  }
+
+  private async validateRoleAndPin(
+    tenantId: string,
+    roleId: string,
+    pin: string,
+    userIdToExclude?: string,
+  ) {
+    const [role, existingPinUser] = await Promise.all([
+      this.prisma.role.findFirst({
+        where: { id: roleId, tenantId, isActive: true },
+        select: { id: true },
+      }),
+      this.prisma.user.findFirst({
+        where: {
+          tenantId,
+          pin,
+          id: userIdToExclude ? { not: userIdToExclude } : undefined,
+        },
+        select: { id: true },
+      }),
+    ]);
+
+    if (!role) {
+      throw new BadRequestException('Role not found for this tenant or inactive');
+    }
+
+    if (existingPinUser) {
+      throw new BadRequestException('PIN already exists for this tenant');
+    }
   }
 }
