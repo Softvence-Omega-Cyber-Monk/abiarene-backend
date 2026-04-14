@@ -1,16 +1,20 @@
 import { NestFactory } from '@nestjs/core';
 import { Logger, ValidationPipe } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  const configService = app.get(ConfigService);
-  // const port = configService.get<number>('PORT', 3000);
 
   app.setGlobalPrefix('api');
-  app.enableCors();
+  app.enableCors({
+    origin: [
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'http://localhost:3000',
+      'http://localhost:3001',
+    ],
+  });
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -21,7 +25,9 @@ async function bootstrap() {
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Restaurant POS SaaS API')
-    .setDescription('Multi-tenant restaurant POS backend APIs with role-based access')
+    .setDescription(
+      'Multi-tenant restaurant POS backend APIs with role-based access',
+    )
     .setVersion('1.0.0')
     .addBearerAuth()
     .build();
@@ -31,4 +37,4 @@ async function bootstrap() {
   await app.listen(3000);
   Logger.log(`Server running.`, 'Bootstrap');
 }
-bootstrap();
+void bootstrap();
