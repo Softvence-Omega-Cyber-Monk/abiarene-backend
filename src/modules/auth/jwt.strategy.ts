@@ -17,7 +17,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub: string; tenantId?: string; role: string; name?: string; email?: string }) {
+  async validate(payload: {
+    sub: string;
+    tenantId?: string;
+    role: string;
+    name?: string;
+    email?: string;
+  }) {
     // Handle admin tokens
     if (payload.role === 'admin') {
       const admin = await this.prisma.admin.findFirst({
@@ -56,6 +62,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     return {
       sub: user.id,
       name: user.name,
+      email: user.email,
       tenantId: user.tenantId,
       role: user.role.name,
     };

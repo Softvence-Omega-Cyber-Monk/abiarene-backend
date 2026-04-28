@@ -34,17 +34,18 @@ export class AuthService {
 
   async pinLogin(dto: PinLoginDto) {
     const user = (await this.prisma.user.findFirst({
-      where: { pin: dto.pin, tenantId: dto.tenantId, status: 'ACTIVE' },
+      where: { pin: dto.pin, email: dto.email, status: 'ACTIVE' },
       include: { role: true },
     })) as any;
 
     if (!user || !user.role?.isActive) {
-      throw new UnauthorizedException('Invalid PIN or disabled role');
+      throw new UnauthorizedException('Invalid email/PIN or disabled role');
     }
 
     const payload = {
       sub: user.id,
       name: user.name,
+      email: user.email,
       tenantId: user.tenantId,
       role: user.role.name,
     };

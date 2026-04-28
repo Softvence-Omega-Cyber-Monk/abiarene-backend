@@ -1,15 +1,20 @@
-import { IsString, Length, IsUUID, IsOptional } from 'class-validator';
+import { IsEmail, IsString, Length } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class PinLoginDto {
-  @ApiProperty({ description: '4-digit user PIN', minLength: 4, maxLength: 4, example: '1234' })
+  @ApiProperty({
+    description: '4-digit user PIN',
+    minLength: 4,
+    maxLength: 4,
+    example: '1234',
+  })
   @IsString()
   @Length(4, 4)
   pin!: string;
 
-  @ApiProperty({ description: 'Tenant ID', example: 'tenant-demo-1' })
-  @IsString()
-  tenantId!: string;
+  @ApiProperty({ description: 'User email', example: 'user@example.com' })
+  @IsEmail()
+  email!: string;
 }
 
 export class TenantResponse {
@@ -32,6 +37,9 @@ export class UserResponse {
 
   @ApiProperty()
   name: string;
+
+  @ApiProperty()
+  email: string;
 
   @ApiProperty()
   role: { id: string; name: string; isActive: boolean };

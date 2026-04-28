@@ -9,7 +9,12 @@ import {
   Query,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { AuthUser } from '../../common/interfaces/auth-user.interface.js';
@@ -23,7 +28,8 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   private tenantId(user?: AuthUser) {
-    if (!user?.tenantId) throw new UnauthorizedException('Missing tenant context');
+    if (!user?.tenantId)
+      throw new UnauthorizedException('Missing tenant context');
     return user.tenantId;
   }
 
@@ -31,7 +37,10 @@ export class UsersController {
   @Roles('manager', 'admin')
   @ApiOperation({ summary: 'Create a user' })
   @ApiResponse({ status: 201, description: 'User created' })
-  create(@CurrentUser() user: AuthUser | undefined, @Body() dto: CreateUsersDto) {
+  create(
+    @CurrentUser() user: AuthUser | undefined,
+    @Body() dto: CreateUsersDto,
+  ) {
     return this.usersService.create(this.tenantId(user), dto);
   }
 

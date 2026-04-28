@@ -1,4 +1,9 @@
-import { Injectable, BadRequestException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -38,7 +43,13 @@ export class AdminService {
         name: dto.name,
         status: 'ACTIVE',
       },
-      select: { id: true, email: true, name: true, status: true, createdAt: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        status: true,
+        createdAt: true,
+      },
     });
 
     const payload = { sub: admin.id, email: admin.email, role: 'admin' };
@@ -118,7 +129,9 @@ export class AdminService {
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
-        throw new BadRequestException('Role name already exists for this tenant');
+        throw new BadRequestException(
+          'Role name already exists for this tenant',
+        );
       }
 
       throw error;
@@ -144,7 +157,7 @@ export class AdminService {
   async createTenantUser(tenantId: string, dto: CreateTenantUserDto) {
     await this.ensureTenantExists(tenantId);
 
-    const [role, existingPinUser] = await Promise.all([
+    const [role, existingPinUser, existingEmailUser] = await Promise.all([
       this.prisma.role.findFirst({
         where: { id: dto.roleId, tenantId, isActive: true },
         select: { id: true },
@@ -153,19 +166,30 @@ export class AdminService {
         where: { tenantId, pin: dto.pin },
         select: { id: true },
       }),
+      this.prisma.user.findFirst({
+        where: { email: dto.email },
+        select: { id: true },
+      }),
     ]);
 
     if (!role) {
-      throw new BadRequestException('Role not found for this tenant or inactive');
+      throw new BadRequestException(
+        'Role not found for this tenant or inactive',
+      );
     }
 
     if (existingPinUser) {
       throw new BadRequestException('PIN already exists for this tenant');
     }
 
+    if (existingEmailUser) {
+      throw new BadRequestException('Email already exists');
+    }
+
     return this.prisma.user.create({
       data: {
         name: dto.name,
+        email: dto.email,
         pin: dto.pin,
         roleId: dto.roleId,
         tenantId,
@@ -182,7 +206,9 @@ export class AdminService {
 
     const where = {
       tenantId,
-      name: dto.search ? { contains: dto.search, mode: 'insensitive' as const } : undefined,
+      name: dto.search
+        ? { contains: dto.search, mode: 'insensitive' as const }
+        : undefined,
     };
 
     const [users, total] = await Promise.all([
@@ -200,14 +226,18 @@ export class AdminService {
   }
 
   async dashboard(tenantId: string) {
-    const [users, orders, tickets, payments, revenue, syncIssues] = await Promise.all([
-      this.prisma.user.count({ where: { tenantId } }),
-      this.prisma.order.count({ where: { tenantId } }),
-      this.prisma.ticket.count({ where: { tenantId } }),
-      this.prisma.payment.count({ where: { tenantId, status: 'COMPLETED' } }),
-      this.prisma.payment.aggregate({ where: { tenantId, status: 'COMPLETED' }, _sum: { amount: true } }),
-      this.prisma.device.count({ where: { tenantId, isActive: false } }),
-    ]);
+    const [users, orders, tickets, payments, revenue, syncIssues] =
+      await Promise.all([
+        this.prisma.user.count({ where: { tenantId } }),
+        this.prisma.order.count({ where: { tenantId } }),
+        this.prisma.ticket.count({ where: { tenantId } }),
+        this.prisma.payment.count({ where: { tenantId, status: 'COMPLETED' } }),
+        this.prisma.payment.aggregate({
+          where: { tenantId, status: 'COMPLETED' },
+          _sum: { amount: true },
+        }),
+        this.prisma.device.count({ where: { tenantId, isActive: false } }),
+      ]);
 
     return {
       counts: { users, orders, tickets, completedPayments: payments },

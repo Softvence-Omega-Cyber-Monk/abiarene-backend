@@ -48,8 +48,8 @@ pnpm test
 
 ## Seed Credentials
 
-- Manager PIN: `1111`
-- Server PIN: `2222`
+- Manager: `alice.manager@example.com` / PIN `1111`
+- Server: `bob.server@example.com` / PIN `2222`
 
 ## API Docs
 

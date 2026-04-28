@@ -1,5 +1,16 @@
 import { Type } from 'class-transformer';
-import { IsBoolean, IsEmail, IsIn, IsInt, IsOptional, IsString, Length, Max, Min, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmail,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Length,
+  Max,
+  Min,
+  MinLength,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class AdminSignupDto {
@@ -33,12 +44,20 @@ export class CreateTenantDto {
   @MinLength(3)
   name!: string;
 
-  @ApiProperty({ description: 'Industry type', example: 'restaurant', required: false })
+  @ApiProperty({
+    description: 'Industry type',
+    example: 'restaurant',
+    required: false,
+  })
   @IsOptional()
   @IsString()
   industry?: string;
 
-  @ApiProperty({ description: 'Subscription fee', example: 129.0, required: false })
+  @ApiProperty({
+    description: 'Subscription fee',
+    example: 129.0,
+    required: false,
+  })
   @IsOptional()
   subscriptionFee?: number;
 }
@@ -49,7 +68,11 @@ export class CreateTenantRoleDto {
   @MinLength(2)
   name!: string;
 
-  @ApiProperty({ description: 'Whether role is active', example: true, required: false })
+  @ApiProperty({
+    description: 'Whether role is active',
+    example: true,
+    required: false,
+  })
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
@@ -78,6 +101,10 @@ export class CreateTenantUserDto {
   @Length(2, 80)
   name!: string;
 
+  @ApiProperty({ description: 'User email', example: 'jane@example.com' })
+  @IsEmail()
+  email!: string;
+
   @ApiProperty({ description: '4-digit PIN', example: '1234' })
   @IsString()
   @Length(4, 4)
@@ -87,7 +114,12 @@ export class CreateTenantUserDto {
   @IsString()
   roleId!: string;
 
-  @ApiProperty({ description: 'User status', example: 'ACTIVE', required: false, enum: ['ACTIVE', 'INACTIVE'] })
+  @ApiProperty({
+    description: 'User status',
+    example: 'ACTIVE',
+    required: false,
+    enum: ['ACTIVE', 'INACTIVE'],
+  })
   @IsOptional()
   @IsIn(['ACTIVE', 'INACTIVE'])
   status?: 'ACTIVE' | 'INACTIVE';
@@ -134,4 +166,7 @@ export class AdminResponse {
 
 export class CreateAdminDto {}
 export class UpdateAdminDto {}
-export class ListAdminDto { @IsOptional() @IsString() from?: string; @IsOptional() @IsString() to?: string; }
+export class ListAdminDto {
+  @IsOptional() @IsString() from?: string;
+  @IsOptional() @IsString() to?: string;
+}

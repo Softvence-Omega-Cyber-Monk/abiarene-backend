@@ -7,14 +7,24 @@ export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(tenantId: string, dto: CreateUsersDto) {
-    await this.validateRoleAndPin(tenantId, dto.roleId, dto.pin);
+    await this.validateRolePinAndEmail(
+      tenantId,
+      dto.roleId,
+      dto.pin,
+      dto.email,
+    );
 
     return this.prisma.user.create({ data: { ...dto, tenantId } });
   }
 
   list(tenantId: string, dto: ListUsersDto) {
     return this.prisma.user.findMany({
-      where: { tenantId, name: dto.search ? { contains: dto.search, mode: 'insensitive' } : undefined },
+      where: {
+        tenantId,
+        name: dto.search
+          ? { contains: dto.search, mode: 'insensitive' }
+          : undefined,
+      },
       skip: (dto.page - 1) * dto.limit,
       take: dto.limit,
       include: { role: true },
@@ -23,23 +33,30 @@ export class UsersService {
   }
 
   read(tenantId: string, id: string) {
-    return this.prisma.user.findFirst({ where: { tenantId, id }, include: { role: true } });
+    return this.prisma.user.findFirst({
+      where: { tenantId, id },
+      include: { role: true },
+    });
   }
 
   async update(tenantId: string, id: string, dto: UpdateUsersDto) {
     const existingUser = await this.prisma.user.findFirst({
       where: { id, tenantId },
-      select: { id: true, pin: true, roleId: true },
+      select: { id: true, email: true, pin: true, roleId: true },
     });
 
     if (!existingUser) {
-      return this.prisma.user.updateMany({ where: { id, tenantId }, data: dto });
+      return this.prisma.user.updateMany({
+        where: { id, tenantId },
+        data: dto,
+      });
     }
 
-    await this.validateRoleAndPin(
+    await this.validateRolePinAndEmail(
       tenantId,
       dto.roleId ?? existingUser.roleId,
       dto.pin ?? existingUser.pin,
+      dto.email ?? existingUser.email,
       id,
     );
 
@@ -51,13 +68,14 @@ export class UsersService {
     return this.prisma.user.deleteMany({ where: { id, tenantId } });
   }
 
-  private async validateRoleAndPin(
+  private async validateRolePinAndEmail(
     tenantId: string,
     roleId: string,
     pin: string,
+    email: string,
     userIdToExclude?: string,
   ) {
-    const [role, existingPinUser] = await Promise.all([
+    const [role, existingPinUser, existingEmailUser] = await Promise.all([
       this.prisma.role.findFirst({
         where: { id: roleId, tenantId, isActive: true },
         select: { id: true },
@@ -70,14 +88,27 @@ export class UsersService {
         },
         select: { id: true },
       }),
+      this.prisma.user.findFirst({
+        where: {
+          email,
+          id: userIdToExclude ? { not: userIdToExclude } : undefined,
+        },
+        select: { id: true },
+      }),
     ]);
 
     if (!role) {
-      throw new BadRequestException('Role not found for this tenant or inactive');
+      throw new BadRequestException(
+        'Role not found for this tenant or inactive',
+      );
     }
 
     if (existingPinUser) {
       throw new BadRequestException('PIN already exists for this tenant');
+    }
+
+    if (existingEmailUser) {
+      throw new BadRequestException('Email already exists');
     }
   }
 }

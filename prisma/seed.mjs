@@ -44,10 +44,11 @@ async function main() {
 
   await prisma.user.upsert({
     where: { id: 'user-manager-1' },
-    update: {},
+    update: { email: 'alice.manager@example.com' },
     create: {
       id: 'user-manager-1',
       name: 'Alice Manager',
+      email: 'alice.manager@example.com',
       pin: '1111',
       roleId: managerRole.id,
       tenantId: tenant.id,
@@ -57,10 +58,11 @@ async function main() {
 
   await prisma.user.upsert({
     where: { id: 'user-server-1' },
-    update: {},
+    update: { email: 'bob.server@example.com' },
     create: {
       id: 'user-server-1',
       name: 'Bob Server',
+      email: 'bob.server@example.com',
       pin: '2222',
       roleId: serverRole.id,
       tenantId: tenant.id,
