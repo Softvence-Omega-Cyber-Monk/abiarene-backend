@@ -1,11 +1,17 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { TenantRoleName } from '../../common/constants/role-name.js';
 
 export class CreateRolesDto {
-  @ApiProperty({ description: 'Role name' })
-  @IsString()
-  name!: string;
+  @ApiProperty({
+    description: 'Role name',
+    enum: TenantRoleName,
+    enumName: 'TenantRoleName',
+    example: TenantRoleName.KITCHEN,
+  })
+  @IsEnum(TenantRoleName)
+  name!: TenantRoleName;
 
   @ApiPropertyOptional({ description: 'Whether role is active', default: true })
   @IsOptional()

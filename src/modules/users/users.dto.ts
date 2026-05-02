@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
-  IsEmail,
+  IsEnum,
   IsIn,
   IsInt,
   IsOptional,
@@ -10,6 +10,7 @@ import {
   Max,
   Min,
 } from 'class-validator';
+import { StaffRoleName } from '../../common/constants/role-name.js';
 
 export class CreateUsersDto {
   @ApiProperty({ description: 'User full name', minLength: 2, maxLength: 80 })
@@ -17,18 +18,19 @@ export class CreateUsersDto {
   @Length(2, 80)
   name!: string;
 
-  @ApiProperty({ description: 'User email', example: 'user@example.com' })
-  @IsEmail()
-  email!: string;
-
   @ApiProperty({ description: '4-digit PIN', minLength: 4, maxLength: 4 })
   @IsString()
   @Length(4, 4)
   pin!: string;
 
-  @ApiProperty({ description: 'Role ID' })
-  @IsString()
-  roleId!: string;
+  @ApiProperty({
+    description: 'Role',
+    enum: StaffRoleName,
+    enumName: 'StaffRoleName',
+    example: StaffRoleName.SERVER,
+  })
+  @IsEnum(StaffRoleName)
+  role!: StaffRoleName;
 }
 
 export class UpdateUsersDto extends PartialType(CreateUsersDto) {

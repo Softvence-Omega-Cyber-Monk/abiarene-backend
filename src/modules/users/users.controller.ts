@@ -34,47 +34,96 @@ export class UsersController {
   }
 
   @Post()
-  @Roles('manager', 'admin')
-  @ApiOperation({ summary: 'Create a user' })
+  @Roles('manager')
+  @ApiOperation({ summary: 'Create a user under current tenant' })
   @ApiResponse({ status: 201, description: 'User created' })
   create(
     @CurrentUser() user: AuthUser | undefined,
     @Body() dto: CreateUsersDto,
   ) {
-    return this.usersService.create(this.tenantId(user), dto);
+    return this.usersService.createForTenant(this.tenantId(user), dto);
   }
 
   @Get()
-  @ApiOperation({ summary: 'List users' })
+  @Roles('manager')
+  @ApiOperation({ summary: 'List users under current tenant' })
   @ApiResponse({ status: 200, description: 'Users retrieved' })
   list(@CurrentUser() user: AuthUser | undefined, @Query() dto: ListUsersDto) {
-    return this.usersService.list(this.tenantId(user), dto);
+    return this.usersService.listForTenant(this.tenantId(user), dto);
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get user by ID' })
+  @Roles('manager')
+  @ApiOperation({ summary: 'Get user by ID under current tenant' })
   @ApiResponse({ status: 200, description: 'User retrieved' })
   read(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
-    return this.usersService.read(this.tenantId(user), id);
+    return this.usersService.readForTenant(this.tenantId(user), id);
   }
 
   @Patch(':id')
-  @Roles('manager', 'admin')
-  @ApiOperation({ summary: 'Update user by ID' })
+  @Roles('manager')
+  @ApiOperation({ summary: 'Update user by ID under current tenant' })
   @ApiResponse({ status: 200, description: 'User updated' })
   update(
     @CurrentUser() user: AuthUser | undefined,
     @Param('id') id: string,
     @Body() dto: UpdateUsersDto,
   ) {
-    return this.usersService.update(this.tenantId(user), id, dto);
+    return this.usersService.updateForTenant(this.tenantId(user), id, dto);
   }
 
   @Delete(':id')
-  @Roles('admin')
-  @ApiOperation({ summary: 'Delete user by ID' })
+  @Roles('manager')
+  @ApiOperation({ summary: 'Delete user by ID under current tenant' })
   @ApiResponse({ status: 200, description: 'User deleted' })
   delete(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
-    return this.usersService.delete(this.tenantId(user), id);
+    return this.usersService.deleteForTenant(this.tenantId(user), id);
+  }
+
+  @Post('tenant/:tenantId')
+  @Roles('admin')
+  @ApiOperation({ summary: 'Admin create a user under any tenant' })
+  @ApiResponse({ status: 201, description: 'User created' })
+  createForTenant(
+    @Param('tenantId') tenantId: string,
+    @Body() dto: CreateUsersDto,
+  ) {
+    return this.usersService.createForTenant(tenantId, dto);
+  }
+
+  @Get('tenant/:tenantId')
+  @Roles('admin')
+  @ApiOperation({ summary: 'Admin list users under any tenant' })
+  @ApiResponse({ status: 200, description: 'Users retrieved' })
+  listForTenant(@Param('tenantId') tenantId: string, @Query() dto: ListUsersDto) {
+    return this.usersService.listForTenant(tenantId, dto);
+  }
+
+  @Get('tenant/:tenantId/:id')
+  @Roles('admin')
+  @ApiOperation({ summary: 'Admin get user by ID under any tenant' })
+  @ApiResponse({ status: 200, description: 'User retrieved' })
+  readForTenant(@Param('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.usersService.readForTenant(tenantId, id);
+  }
+
+  @Patch('tenant/:tenantId/:id')
+  @Roles('admin')
+  @ApiOperation({ summary: 'Admin update user by ID under any tenant' })
+  @ApiResponse({ status: 200, description: 'User updated' })
+  updateForTenant(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateUsersDto,
+  ) {
+    return this.usersService.updateForTenant(tenantId, id, dto);
+  }
+
+  @Delete('tenant/:tenantId/:id')
+  @Roles('admin')
+  @ApiOperation({ summary: 'Admin delete user by ID under any tenant' })
+  @ApiResponse({ status: 200, description: 'User deleted' })
+  deleteForTenant(@Param('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.usersService.deleteForTenant(tenantId, id);
   }
 }

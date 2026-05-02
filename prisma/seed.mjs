@@ -30,17 +30,15 @@ async function main() {
     },
   });
 
-  const managerRole = await prisma.role.upsert({
-    where: { name_tenantId: { name: 'Manager', tenantId: tenant.id } },
-    update: { isActive: true },
-    create: { name: 'Manager', tenantId: tenant.id, isActive: true },
-  });
-
-  const serverRole = await prisma.role.upsert({
-    where: { name_tenantId: { name: 'Server', tenantId: tenant.id } },
-    update: { isActive: true },
-    create: { name: 'Server', tenantId: tenant.id, isActive: true },
-  });
+  const [managerRole, serverRole] = await Promise.all(
+    ['manager', 'server', 'kitchen', 'cashier'].map((name) =>
+      prisma.role.upsert({
+        where: { name_tenantId: { name, tenantId: tenant.id } },
+        update: { isActive: true },
+        create: { name, tenantId: tenant.id, isActive: true },
+      }),
+    ),
+  );
 
   await prisma.user.upsert({
     where: { id: 'user-manager-1' },

@@ -20,6 +20,14 @@ enum UserStatus {
   INACTIVE
 }
 
+enum RoleName {
+  manager
+  server
+  kitchen
+  cashier
+  admin
+}
+
 enum TableStatus {
   AVAILABLE
   OCCUPIED
@@ -88,7 +96,6 @@ model Tenant {
   payments        Payment[]
   discountRequests DiscountRequest[]
   supportTickets  SupportTicket[]
-  devices         Device[]
 
   @@map("tenants")
 }
@@ -97,7 +104,7 @@ model Tenant {
 
 model Role {
   id        String   @id @default(uuid())
-  name      String
+  name      RoleName
   tenantId  String
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -131,7 +138,7 @@ model User {
 
   @@unique([email])
   @@index([tenantId])
-  @@index([pin, tenantId])
+  @@unique([roleId, pin])
   @@map("users")
 }
 
@@ -392,21 +399,4 @@ model SupportTicket {
 
   @@index([tenantId])
   @@map("support_tickets")
-}
-
-// ─── Device ─────────────────────────────────────────────────────
-
-model Device {
-  id        String   @id @default(uuid())
-  tenantId  String
-  name      String
-  isActive  Boolean  @default(true)
-  lastSeen  DateTime @default(now())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId])
-  @@map("devices")
 }

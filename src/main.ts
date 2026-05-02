@@ -36,6 +36,6 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   await app.listen(3000);
-  Logger.log(`Server running.`, 'Bootstrap');
+  Logger.log(`Server running port ${process.env.PORT}`, 'Bootstrap');
 }
 void bootstrap();

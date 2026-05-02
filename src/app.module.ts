@@ -8,7 +8,6 @@ import { RolesGuard } from './common/guards/roles.guard.js';
 import { TenantGuard } from './common/guards/tenant.guard.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { AdminModule } from './modules/admin/admin.module.js';
-import { DevicesModule } from './modules/devices/devices.module.js';
 import { DiscountModule } from './modules/discount/discount.module.js';
 import { InventoryModule } from './modules/inventory/inventory.module.js';
 import { MenuModule } from './modules/menu/menu.module.js';
@@ -38,7 +37,6 @@ import { PrismaModule } from './prisma/prisma.module.js';
     TicketsModule,
     PaymentsModule,
     DiscountModule,
-    DevicesModule,
     NotificationsModule,
     SupportModule,
     AdminModule,
