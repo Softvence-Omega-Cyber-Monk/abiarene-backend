@@ -30,7 +30,7 @@ async function main() {
     },
   });
 
-  const [managerRole, serverRole] = await Promise.all(
+  const roles = await Promise.all(
     ['manager', 'server', 'kitchen', 'cashier'].map((name) =>
       prisma.role.upsert({
         where: { name_tenantId: { name, tenantId: tenant.id } },
@@ -39,6 +39,9 @@ async function main() {
       }),
     ),
   );
+
+  const managerRole = roles.find((role) => role.name === 'manager');
+  const serverRole = roles.find((role) => role.name === 'server');
 
   await prisma.user.upsert({
     where: { id: 'user-manager-1' },
@@ -78,15 +81,50 @@ async function main() {
     },
   });
 
-  const menu = await prisma.menu.create({
-    data: { tenantId: tenant.id, name: 'Main Menu' },
+  const table = await prisma.table.upsert({
+    where: { id: 'table-demo-1' },
+    update: {},
+    create: {
+      id: 'table-demo-1',
+      tenantId: tenant.id,
+      tableNumber: 1,
+      seatCount: 4,
+      status: 'AVAILABLE',
+    },
   });
 
-  await prisma.menuItem.create({
-    data: {
-      menuId: menu.id,
-      productId: product.id,
-      priceOverride: 13.5,
+  const item = await prisma.menuItem.upsert({
+    where: { id: 'item-demo-1' },
+    update: {
+      image: null,
+      name: product.name,
+      category: 'Pizza',
+      description: 'Classic pizza item for demo table assignment',
+      price: 13.5,
+      isActive: true,
+    },
+    create: {
+      id: 'item-demo-1',
+      tenantId: tenant.id,
+      image: null,
+      name: product.name,
+      category: 'Pizza',
+      description: 'Classic pizza item for demo table assignment',
+      price: 13.5,
+      isActive: true,
+    },
+  });
+
+  await prisma.tableMenuItem.upsert({
+    where: { id: 'table-item-demo-1' },
+    update: {
+      tableId: table.id,
+      menuItemId: item.id,
+    },
+    create: {
+      id: 'table-item-demo-1',
+      tableId: table.id,
+      menuItemId: item.id,
     },
   });
 }

@@ -7,12 +7,30 @@ export class MenuService {
   constructor(private readonly prisma: PrismaService) {}
 
   create(tenantId: string, dto: CreateMenuDto) {
-    return this.prisma.menu.create({ data: { ...dto, tenantId } as any });
+    return this.prisma.menuItem.create({
+      data: {
+        tenantId,
+        image: dto.image,
+        name: dto.name,
+        category: dto.category,
+        description: dto.description,
+        price: dto.price,
+        isActive: dto.isActive ?? true,
+      } as any,
+    });
   }
 
   list(tenantId: string, dto: ListMenuDto) {
-    return this.prisma.menu.findMany({
-      where: { tenantId } as any,
+    return this.prisma.menuItem.findMany({
+      where: {
+        tenantId,
+        OR: dto.search
+          ? [
+              { name: { contains: dto.search, mode: 'insensitive' } },
+              { category: { contains: dto.search, mode: 'insensitive' } },
+            ]
+          : undefined,
+      } as any,
       skip: (dto.page - 1) * dto.limit,
       take: dto.limit,
       orderBy: { createdAt: 'desc' } as any,
@@ -20,15 +38,34 @@ export class MenuService {
   }
 
   read(tenantId: string, id: string) {
-    return this.prisma.menu.findFirst({ where: { tenantId, id } as any });
+    return this.prisma.menuItem.findFirst({
+      where: { tenantId, id } as any,
+      include: {
+        tableItems: {
+          include: {
+            table: true,
+          },
+        },
+      } as any,
+    });
   }
 
   async update(tenantId: string, id: string, dto: UpdateMenuDto) {
-    await this.prisma.menu.updateMany({ where: { tenantId, id } as any, data: dto as any });
+    await this.prisma.menuItem.updateMany({
+      where: { tenantId, id } as any,
+      data: {
+        image: dto.image,
+        name: dto.name,
+        category: dto.category,
+        description: dto.description,
+        price: dto.price,
+        isActive: dto.isActive,
+      } as any,
+    });
     return this.read(tenantId, id);
   }
 
   delete(tenantId: string, id: string) {
-    return this.prisma.menu.deleteMany({ where: { tenantId, id } as any });
+    return this.prisma.menuItem.deleteMany({ where: { tenantId, id } as any });
   }
 }

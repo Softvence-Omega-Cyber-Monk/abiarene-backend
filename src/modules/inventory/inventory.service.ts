@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { CreateInventoryDto, ListInventoryDto, UpdateInventoryDto } from './inventory.dto.js';
+import {
+  CreateInventoryDto,
+  ListInventoryDto,
+  UpdateInventoryDto,
+} from './inventory.dto.js';
 
 @Injectable()
 export class InventoryService {
@@ -24,7 +28,10 @@ export class InventoryService {
   }
 
   async update(tenantId: string, id: string, dto: UpdateInventoryDto) {
-    await this.prisma.product.updateMany({ where: { tenantId, id } as any, data: dto as any });
+    await this.prisma.product.updateMany({
+      where: { tenantId, id } as any,
+      data: dto as any,
+    });
     return this.read(tenantId, id);
   }
 

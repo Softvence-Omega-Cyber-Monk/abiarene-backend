@@ -10,9 +10,9 @@ export class CreateOrdersDto {
 }
 
 export class OrderItemDto {
-  @ApiProperty({ description: 'Menu item ID' })
+  @ApiProperty({ description: 'Item ID' })
   @IsString()
-  menuItemId!: string;
+  itemId!: string;
 
   @ApiProperty({ description: 'Quantity', example: 2 })
   @Type(() => Number)

@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { TableStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional } from 'class-validator';
+import { ArrayUnique, IsArray, IsEnum, IsInt, IsOptional, IsString } from 'class-validator';
 import { PaginationDto } from '../../common/dto/pagination.dto.js';
 
 export class CreateTablesDto {
@@ -15,12 +16,25 @@ export class CreateTablesDto {
   @IsInt()
   seatCount?: number;
 
-  @ApiPropertyOptional({ enum: ['AVAILABLE', 'OCCUPIED', 'SERVED'] })
+  @ApiPropertyOptional({
+    enum: TableStatus,
+    enumName: 'TableStatus',
+    description: 'Table status. Available options: AVAILABLE, OCCUPIED, SERVED',
+    example: TableStatus.AVAILABLE,
+  })
   @IsOptional()
-  @IsIn(['AVAILABLE', 'OCCUPIED', 'SERVED'])
-  status?: 'AVAILABLE' | 'OCCUPIED' | 'SERVED';
+  @IsEnum(TableStatus)
+  status?: TableStatus;
 }
 
 export class UpdateTablesDto extends PartialType(CreateTablesDto) {}
 
 export class ListTablesDto extends PaginationDto {}
+
+export class SetTableItemsDto {
+  @ApiProperty({ type: [String], description: 'Tenant item IDs assigned to this table' })
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  itemIds!: string[];
+}

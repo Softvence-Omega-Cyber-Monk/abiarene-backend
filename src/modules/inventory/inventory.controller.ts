@@ -1,9 +1,29 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UnauthorizedException,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { AuthUser } from '../../common/interfaces/auth-user.interface.js';
-import { CreateInventoryDto, ListInventoryDto, UpdateInventoryDto } from './inventory.dto.js';
+import {
+  CreateInventoryDto,
+  ListInventoryDto,
+  UpdateInventoryDto,
+} from './inventory.dto.js';
 import { InventoryService } from './inventory.service.js';
 
 @ApiTags('Inventory')
@@ -13,7 +33,8 @@ export class InventoryController {
   constructor(private readonly service: InventoryService) {}
 
   private tenantId(user?: AuthUser) {
-    if (!user?.tenantId) throw new UnauthorizedException('Missing tenant context');
+    if (!user?.tenantId)
+      throw new UnauthorizedException('Missing tenant context');
     return user.tenantId;
   }
 
@@ -21,15 +42,27 @@ export class InventoryController {
   @Roles('manager', 'admin')
   @ApiOperation({ summary: 'Create inventory item' })
   @ApiResponse({ status: 201, description: 'Inventory item created' })
-  create(@CurrentUser() user: AuthUser | undefined, @Body() dto: CreateInventoryDto) {
+  create(
+    @CurrentUser() user: AuthUser | undefined,
+    @Body() dto: CreateInventoryDto,
+  ) {
     return this.service.create(this.tenantId(user), dto);
   }
 
   @Get()
   @ApiOperation({ summary: 'List inventory items' })
   @ApiResponse({ status: 200, description: 'Inventory items retrieved' })
-  list(@CurrentUser() user: AuthUser | undefined, @Query() dto: ListInventoryDto) {
-    return this.service.list(this.tenantId(user), dto);
+  @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
+  @ApiQuery({ name: 'limit', required: false, type: String, example: '20' })
+  list(
+    @CurrentUser() user: AuthUser | undefined,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '20',
+  ) {
+    return this.service.list(this.tenantId(user), {
+      page: parseInt(page),
+      limit: parseInt(limit),
+    } as ListInventoryDto);
   }
 
   @Get(':id')
@@ -43,7 +76,11 @@ export class InventoryController {
   @Roles('manager', 'admin')
   @ApiOperation({ summary: 'Update inventory item by ID' })
   @ApiResponse({ status: 200, description: 'Inventory item updated' })
-  update(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string, @Body() dto: UpdateInventoryDto) {
+  update(
+    @CurrentUser() user: AuthUser | undefined,
+    @Param('id') id: string,
+    @Body() dto: UpdateInventoryDto,
+  ) {
     return this.service.update(this.tenantId(user), id, dto);
   }
 
