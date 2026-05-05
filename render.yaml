@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: abiarene-backend
+    runtime: node
+    plan: free
+    autoDeployTrigger: commit
+    buildCommand: pnpm run build:render
+    startCommand: pnpm run start:prod
+    healthCheckPath: /api
+    envVars:
+      - key: NODE_VERSION
+        value: 22.22.0
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 1d
+      - key: ALLOWED_ORIGINS
+        value: http://localhost:5173,http://localhost:3000

@@ -5,15 +5,19 @@ import { AppModule } from './app.module.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const port = parseInt(process.env.PORT ?? '3000', 10);
+  const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
+    : [
+        'http://localhost:5173',
+        'http://localhost:5174',
+        'http://localhost:3000',
+        'http://localhost:3001',
+      ];
 
   app.setGlobalPrefix('api');
   app.enableCors({
-    origin: [
-      'http://localhost:5173',
-      'http://localhost:5174',
-      'http://localhost:3000',
-      'http://localhost:3001',
-    ],
+    origin: allowedOrigins,
     credentials: true,
   });
   app.useGlobalPipes(
@@ -35,7 +39,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api/docs', app, document);
 
-  await app.listen(3000);
-  Logger.log(`Server running port ${process.env.PORT}`, 'Bootstrap');
+  await app.listen(port, '0.0.0.0');
+  Logger.log(`Server running on port ${port}`, 'Bootstrap');
 }
 void bootstrap();

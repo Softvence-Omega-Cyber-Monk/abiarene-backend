@@ -1,8 +1,14 @@
+-- CreateSchema
+CREATE SCHEMA IF NOT EXISTS "public";
+
 -- CreateEnum
 CREATE TYPE "TenantStatus" AS ENUM ('ACTIVE', 'INACTIVE', 'SUSPENDED');
 
 -- CreateEnum
 CREATE TYPE "UserStatus" AS ENUM ('ACTIVE', 'INACTIVE');
+
+-- CreateEnum
+CREATE TYPE "RoleName" AS ENUM ('manager', 'server', 'kitchen', 'cashier', 'admin');
 
 -- CreateEnum
 CREATE TYPE "TableStatus" AS ENUM ('AVAILABLE', 'OCCUPIED', 'SERVED');
@@ -42,7 +48,7 @@ CREATE TABLE "tenants" (
 -- CreateTable
 CREATE TABLE "roles" (
     "id" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
+    "name" "RoleName" NOT NULL,
     "tenantId" TEXT NOT NULL,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -55,6 +61,7 @@ CREATE TABLE "roles" (
 CREATE TABLE "users" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
     "pin" TEXT NOT NULL,
     "roleId" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
@@ -63,6 +70,19 @@ CREATE TABLE "users" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "admins" (
+    "id" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "password" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'ACTIVE',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "admins_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -93,38 +113,19 @@ CREATE TABLE "stock_logs" (
 );
 
 -- CreateTable
-CREATE TABLE "menus" (
+CREATE TABLE "menu_items" (
     "id" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
+    "image" TEXT,
     "name" TEXT NOT NULL,
+    "category" TEXT NOT NULL,
+    "description" TEXT,
+    "price" DOUBLE PRECISION NOT NULL,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "menus_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "menu_items" (
-    "id" TEXT NOT NULL,
-    "menuId" TEXT NOT NULL,
-    "productId" TEXT NOT NULL,
-    "priceOverride" DOUBLE PRECISION,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
     CONSTRAINT "menu_items_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "menu_item_properties" (
-    "id" TEXT NOT NULL,
-    "menuItemId" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "extraPrice" DOUBLE PRECISION NOT NULL DEFAULT 0,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "menu_item_properties_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -138,6 +139,16 @@ CREATE TABLE "tables" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "tables_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "table_menu_items" (
+    "id" TEXT NOT NULL,
+    "tableId" TEXT NOT NULL,
+    "menuItemId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "table_menu_items_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -229,19 +240,6 @@ CREATE TABLE "support_tickets" (
     CONSTRAINT "support_tickets_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "devices" (
-    "id" TEXT NOT NULL,
-    "tenantId" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "lastSeen" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "devices_pkey" PRIMARY KEY ("id")
-);
-
 -- CreateIndex
 CREATE INDEX "roles_tenantId_idx" ON "roles"("tenantId");
 
@@ -252,7 +250,13 @@ CREATE UNIQUE INDEX "roles_name_tenantId_key" ON "roles"("name", "tenantId");
 CREATE INDEX "users_tenantId_idx" ON "users"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "users_pin_tenantId_idx" ON "users"("pin", "tenantId");
+CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "users_roleId_pin_key" ON "users"("roleId", "pin");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "admins_email_key" ON "admins"("email");
 
 -- CreateIndex
 CREATE INDEX "products_tenantId_idx" ON "products"("tenantId");
@@ -264,22 +268,22 @@ CREATE UNIQUE INDEX "products_sku_tenantId_key" ON "products"("sku", "tenantId")
 CREATE INDEX "stock_logs_productId_idx" ON "stock_logs"("productId");
 
 -- CreateIndex
-CREATE INDEX "menus_tenantId_idx" ON "menus"("tenantId");
-
--- CreateIndex
-CREATE INDEX "menu_items_menuId_idx" ON "menu_items"("menuId");
-
--- CreateIndex
-CREATE INDEX "menu_items_productId_idx" ON "menu_items"("productId");
-
--- CreateIndex
-CREATE INDEX "menu_item_properties_menuItemId_idx" ON "menu_item_properties"("menuItemId");
+CREATE INDEX "menu_items_tenantId_idx" ON "menu_items"("tenantId");
 
 -- CreateIndex
 CREATE INDEX "tables_tenantId_idx" ON "tables"("tenantId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "tables_tableNumber_tenantId_key" ON "tables"("tableNumber", "tenantId");
+
+-- CreateIndex
+CREATE INDEX "table_menu_items_tableId_idx" ON "table_menu_items"("tableId");
+
+-- CreateIndex
+CREATE INDEX "table_menu_items_menuItemId_idx" ON "table_menu_items"("menuItemId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "table_menu_items_tableId_menuItemId_key" ON "table_menu_items"("tableId", "menuItemId");
 
 -- CreateIndex
 CREATE INDEX "orders_tenantId_idx" ON "orders"("tenantId");
@@ -317,9 +321,6 @@ CREATE INDEX "discount_requests_orderId_idx" ON "discount_requests"("orderId");
 -- CreateIndex
 CREATE INDEX "support_tickets_tenantId_idx" ON "support_tickets"("tenantId");
 
--- CreateIndex
-CREATE INDEX "devices_tenantId_idx" ON "devices"("tenantId");
-
 -- AddForeignKey
 ALTER TABLE "roles" ADD CONSTRAINT "roles_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -336,19 +337,16 @@ ALTER TABLE "products" ADD CONSTRAINT "products_tenantId_fkey" FOREIGN KEY ("ten
 ALTER TABLE "stock_logs" ADD CONSTRAINT "stock_logs_productId_fkey" FOREIGN KEY ("productId") REFERENCES "products"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "menus" ADD CONSTRAINT "menus_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "menu_items" ADD CONSTRAINT "menu_items_menuId_fkey" FOREIGN KEY ("menuId") REFERENCES "menus"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "menu_items" ADD CONSTRAINT "menu_items_productId_fkey" FOREIGN KEY ("productId") REFERENCES "products"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "menu_item_properties" ADD CONSTRAINT "menu_item_properties_menuItemId_fkey" FOREIGN KEY ("menuItemId") REFERENCES "menu_items"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "menu_items" ADD CONSTRAINT "menu_items_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "tables" ADD CONSTRAINT "tables_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "table_menu_items" ADD CONSTRAINT "table_menu_items_tableId_fkey" FOREIGN KEY ("tableId") REFERENCES "tables"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "table_menu_items" ADD CONSTRAINT "table_menu_items_menuItemId_fkey" FOREIGN KEY ("menuItemId") REFERENCES "menu_items"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "orders" ADD CONSTRAINT "orders_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -394,6 +392,3 @@ ALTER TABLE "discount_requests" ADD CONSTRAINT "discount_requests_requestedBy_fk
 
 -- AddForeignKey
 ALTER TABLE "support_tickets" ADD CONSTRAINT "support_tickets_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "devices" ADD CONSTRAINT "devices_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;

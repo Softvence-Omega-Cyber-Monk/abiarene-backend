@@ -10,7 +10,11 @@ export class NotificationsGateway {
     this.server.emit('kitchen-ready', payload);
   }
 
-  broadcastTableUpdate(payload: { tenantId: string; tableId: string; status: string }) {
+  broadcastTableUpdate(payload: {
+    tenantId: string;
+    tableId: string;
+    status: string;
+  }) {
     this.server.emit('table-update', payload);
   }
 }
