@@ -6,10 +6,10 @@ import {
   IsEnum,
   IsIn,
   IsInt,
+  Matches,
   IsNumber,
   IsOptional,
   IsString,
-  Length,
   Max,
   Min,
   MinLength,
@@ -42,9 +42,10 @@ export class CreateTenantDto {
   @ApiProperty({
     description: 'Default manager 4-digit PIN for this tenant',
     example: '1234',
+    pattern: '^\\d{4}$',
   })
   @IsString()
-  @Length(4, 4)
+  @Matches(/^\d{4}$/, { message: 'PIN must be exactly 4 digits' })
   managerPin!: string;
 
   @ApiPropertyOptional({

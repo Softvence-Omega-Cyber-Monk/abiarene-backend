@@ -49,15 +49,20 @@ export class TenantController {
   }
 
   @Get('all')
-  @Roles('admin')
-  @ApiOperation({ summary: 'List all tenants' })
+  @ApiOperation({ summary: 'List all tenants for admin' })
   @ApiResponse({ status: 200, description: 'Tenants retrieved' })
+  @ApiResponse({ status: 403, description: 'This route is for admin only' })
   @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
   @ApiQuery({ name: 'limit', required: false, type: String, example: '20' })
   listAll(
+    @CurrentUser() user: AuthUser | undefined,
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '20',
   ) {
+    if (user?.role !== 'admin') {
+      throw new ForbiddenException('This route is for admin only');
+    }
+
     return this.service.listAll({
       page: parseInt(page),
       limit: parseInt(limit),
@@ -108,13 +113,18 @@ export class TenantController {
   }
 
   @Patch(':tenantId/roles')
-  @Roles('admin')
-  @ApiOperation({ summary: 'Enable roles under a tenant' })
+  @ApiOperation({ summary: 'Enable roles under a tenant for admin' })
   @ApiResponse({ status: 200, description: 'Tenant roles updated' })
+  @ApiResponse({ status: 403, description: 'This route is for admin only' })
   updateRoles(
+    @CurrentUser() user: AuthUser | undefined,
     @Param('tenantId') tenantId: string,
     @Body() dto: UpdateTenantRolesDto,
   ) {
+    if (user?.role !== 'admin') {
+      throw new ForbiddenException('This route is for admin only');
+    }
+
     return this.service.updateRoles(tenantId, dto);
   }
 }

@@ -1,12 +1,10 @@
 import {
   Injectable,
   BadRequestException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { AdminSignupDto, AdminLoginDto } from './admin.dto.js';
-import * as bcrypt from 'bcrypt';
+import { AdminSignupDto } from './admin.dto.js';
 
 @Injectable()
 export class AdminService {
@@ -16,20 +14,24 @@ export class AdminService {
   ) {}
 
   async signup(dto: AdminSignupDto) {
-    const existingAdmin = await this.prisma.admin.findUnique({
-      where: { email: dto.email },
-    });
+    const [existingAdmin, existingUser] = await Promise.all([
+      this.prisma.admin.findUnique({
+        where: { email: dto.email },
+      }),
+      this.prisma.user.findFirst({
+        where: { email: dto.email },
+        select: { id: true },
+      }),
+    ]);
 
-    if (existingAdmin) {
+    if (existingAdmin || existingUser) {
       throw new BadRequestException('Email already registered');
     }
-
-    const hashedPassword = await bcrypt.hash(dto.password, 10);
 
     const admin = await this.prisma.admin.create({
       data: {
         email: dto.email,
-        password: hashedPassword,
+        pin: dto.pin,
         name: dto.name,
         status: 'ACTIVE',
       },
@@ -50,48 +52,21 @@ export class AdminService {
     };
   }
 
-  async login(dto: AdminLoginDto) {
-    const admin = await this.prisma.admin.findUnique({
-      where: { email: dto.email },
-    });
-
-    if (!admin) {
-      throw new UnauthorizedException('Invalid email or password');
-    }
-
-    const isPasswordValid = await bcrypt.compare(dto.password, admin.password);
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid email or password');
-    }
-
-    const payload = { sub: admin.id, email: admin.email, role: 'admin' };
-
-    return {
-      accessToken: await this.jwtService.signAsync(payload),
-      admin: {
-        id: admin.id,
-        email: admin.email,
-        name: admin.name,
-        status: admin.status,
-        createdAt: admin.createdAt,
-      },
-    };
-  }
-
-  async dashboard(tenantId: string) {
-    const [users, orders, tickets, payments, revenue] = await Promise.all([
-      this.prisma.user.count({ where: { tenantId } }),
-      this.prisma.order.count({ where: { tenantId } }),
-      this.prisma.ticket.count({ where: { tenantId } }),
-      this.prisma.payment.count({ where: { tenantId, status: 'COMPLETED' } }),
+  async dashboard() {
+    const [tenants, users, orders, tickets, payments, revenue] = await Promise.all([
+      this.prisma.tenant.count(),
+      this.prisma.user.count(),
+      this.prisma.order.count(),
+      this.prisma.ticket.count(),
+      this.prisma.payment.count({ where: { status: 'COMPLETED' } }),
       this.prisma.payment.aggregate({
-        where: { tenantId, status: 'COMPLETED' },
+        where: { status: 'COMPLETED' },
         _sum: { amount: true },
       }),
     ]);
 
     return {
-      counts: { users, orders, tickets, completedPayments: payments },
+      counts: { tenants, users, orders, tickets, completedPayments: payments },
       revenue: revenue._sum.amount ?? 0,
     };
   }

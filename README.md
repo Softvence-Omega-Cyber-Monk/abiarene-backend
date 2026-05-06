@@ -6,7 +6,7 @@ Production-ready multi-tenant backend built with NestJS, Prisma, PostgreSQL, JWT
 
 - NestJS modular architecture
 - PostgreSQL + Prisma ORM
-- JWT auth (PIN login)
+- JWT auth (email + PIN login)
 - Swagger at `/api/docs`
 - Class-validator for DTO validation
 - Socket.IO websocket notifications
@@ -48,6 +48,7 @@ pnpm test
 
 ## Seed Credentials
 
+- Admin: `admin@example.com` / PIN `1234`
 - Manager: `alice.manager@example.com` / PIN `1111`
 - Server: `bob.server@example.com` / PIN `2222`
 

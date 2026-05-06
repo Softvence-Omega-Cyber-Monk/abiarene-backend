@@ -1,12 +1,14 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
+  IsEmail,
   IsEnum,
   IsIn,
   IsInt,
+  Length,
+  Matches,
   IsOptional,
   IsString,
-  Length,
   Max,
   Min,
 } from 'class-validator';
@@ -18,9 +20,19 @@ export class CreateUsersDto {
   @Length(2, 80)
   name!: string;
 
-  @ApiProperty({ description: '4-digit PIN', minLength: 4, maxLength: 4 })
+  @ApiProperty({ description: 'User email', example: 'server@example.com' })
+  @IsEmail()
+  email!: string;
+
+  @ApiProperty({
+    description: '4-digit PIN',
+    minLength: 4,
+    maxLength: 4,
+    pattern: '^\\d{4}$',
+    example: '1234',
+  })
   @IsString()
-  @Length(4, 4)
+  @Matches(/^\d{4}$/, { message: 'PIN must be exactly 4 digits' })
   pin!: string;
 
   @ApiProperty({
@@ -29,6 +41,9 @@ export class CreateUsersDto {
     enumName: 'StaffRoleName',
     example: StaffRoleName.SERVER,
   })
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.toLowerCase() : value,
+  )
   @IsEnum(StaffRoleName)
   role!: StaffRoleName;
 }

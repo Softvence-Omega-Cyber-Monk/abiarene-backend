@@ -1,15 +1,16 @@
-import { IsEmail, IsString, Length } from 'class-validator';
+import { IsEmail, IsString, Matches } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class PinLoginDto {
+export class LoginDto {
   @ApiProperty({
     description: '4-digit user PIN',
     minLength: 4,
     maxLength: 4,
+    pattern: '^\\d{4}$',
     example: '1234',
   })
   @IsString()
-  @Length(4, 4)
+  @Matches(/^\d{4}$/, { message: 'PIN must be exactly 4 digits' })
   pin!: string;
 
   @ApiProperty({ description: 'User email', example: 'user@example.com' })

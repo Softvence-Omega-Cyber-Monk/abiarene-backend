@@ -33,15 +33,15 @@ export class MenuController {
 
   @Post()
   @Roles('manager')
-  @ApiOperation({ summary: 'Create item under current tenant' })
-  @ApiResponse({ status: 201, description: 'Item created' })
+  @ApiOperation({ summary: 'Create item under your current tenant' })
+  @ApiResponse({ status: 201, description: 'Item created under your current tenant' })
   create(@CurrentUser() user: AuthUser | undefined, @Body() dto: CreateMenuDto) {
     return this.service.create(this.tenantId(user), dto);
   }
 
   @Get()
-  @ApiOperation({ summary: 'List items under current tenant' })
-  @ApiResponse({ status: 200, description: 'Items retrieved' })
+  @ApiOperation({ summary: 'List items under your current tenant' })
+  @ApiResponse({ status: 200, description: 'Items retrieved for your current tenant' })
   @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
   @ApiQuery({ name: 'limit', required: false, type: String, example: '20' })
   @ApiQuery({ name: 'search', required: false, type: String, example: 'Burger' })
@@ -55,40 +55,40 @@ export class MenuController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get item by ID under current tenant' })
-  @ApiResponse({ status: 200, description: 'Item retrieved' })
+  @ApiOperation({ summary: 'Get item by item ID under your current tenant' })
+  @ApiResponse({ status: 200, description: 'Item retrieved for your current tenant' })
   read(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
     return this.service.read(this.tenantId(user), id);
   }
 
   @Patch(':id')
   @Roles('manager')
-  @ApiOperation({ summary: 'Update item by ID under current tenant' })
-  @ApiResponse({ status: 200, description: 'Item updated' })
+  @ApiOperation({ summary: 'Update item by item ID under your current tenant' })
+  @ApiResponse({ status: 200, description: 'Item updated under your current tenant' })
   update(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string, @Body() dto: UpdateMenuDto) {
     return this.service.update(this.tenantId(user), id, dto);
   }
 
   @Delete(':id')
   @Roles('manager')
-  @ApiOperation({ summary: 'Delete item by ID under current tenant' })
-  @ApiResponse({ status: 200, description: 'Item deleted' })
+  @ApiOperation({ summary: 'Delete item by item ID under your current tenant' })
+  @ApiResponse({ status: 200, description: 'Item deleted under your current tenant' })
   delete(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
     return this.service.delete(this.tenantId(user), id);
   }
 
   @Post('tenant/:tenantId')
   @Roles('admin')
-  @ApiOperation({ summary: 'Admin create item under any tenant' })
-  @ApiResponse({ status: 201, description: 'Item created' })
+  @ApiOperation({ summary: 'Admin create item under a specified tenant' })
+  @ApiResponse({ status: 201, description: 'Item created under the specified tenant' })
   createForTenant(@Param('tenantId') tenantId: string, @Body() dto: CreateMenuDto) {
     return this.service.create(tenantId, dto);
   }
 
   @Get('tenant/:tenantId')
   @Roles('admin')
-  @ApiOperation({ summary: 'Admin list items under any tenant' })
-  @ApiResponse({ status: 200, description: 'Items retrieved' })
+  @ApiOperation({ summary: 'Admin list items under a specified tenant' })
+  @ApiResponse({ status: 200, description: 'Items retrieved for the specified tenant' })
   @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
   @ApiQuery({ name: 'limit', required: false, type: String, example: '20' })
   @ApiQuery({ name: 'search', required: false, type: String, example: 'Burger' })
@@ -103,16 +103,16 @@ export class MenuController {
 
   @Get('tenant/:tenantId/:id')
   @Roles('admin')
-  @ApiOperation({ summary: 'Admin get item by ID under any tenant' })
-  @ApiResponse({ status: 200, description: 'Item retrieved' })
+  @ApiOperation({ summary: 'Admin get item by item ID under a specified tenant' })
+  @ApiResponse({ status: 200, description: 'Item retrieved for the specified tenant' })
   readForTenant(@Param('tenantId') tenantId: string, @Param('id') id: string) {
     return this.service.read(tenantId, id);
   }
 
   @Patch('tenant/:tenantId/:id')
   @Roles('admin')
-  @ApiOperation({ summary: 'Admin update item by ID under any tenant' })
-  @ApiResponse({ status: 200, description: 'Item updated' })
+  @ApiOperation({ summary: 'Admin update item by item ID under a specified tenant' })
+  @ApiResponse({ status: 200, description: 'Item updated under the specified tenant' })
   updateForTenant(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
@@ -123,8 +123,8 @@ export class MenuController {
 
   @Delete('tenant/:tenantId/:id')
   @Roles('admin')
-  @ApiOperation({ summary: 'Admin delete item by ID under any tenant' })
-  @ApiResponse({ status: 200, description: 'Item deleted' })
+  @ApiOperation({ summary: 'Admin delete item by item ID under a specified tenant' })
+  @ApiResponse({ status: 200, description: 'Item deleted under the specified tenant' })
   deleteForTenant(@Param('tenantId') tenantId: string, @Param('id') id: string) {
     return this.service.delete(tenantId, id);
   }

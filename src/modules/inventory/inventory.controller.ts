@@ -40,8 +40,8 @@ export class InventoryController {
 
   @Post()
   @Roles('manager', 'admin')
-  @ApiOperation({ summary: 'Create inventory item' })
-  @ApiResponse({ status: 201, description: 'Inventory item created' })
+  @ApiOperation({ summary: 'Create inventory item under your current tenant' })
+  @ApiResponse({ status: 201, description: 'Inventory item created under your current tenant' })
   create(
     @CurrentUser() user: AuthUser | undefined,
     @Body() dto: CreateInventoryDto,
@@ -50,8 +50,8 @@ export class InventoryController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List inventory items' })
-  @ApiResponse({ status: 200, description: 'Inventory items retrieved' })
+  @ApiOperation({ summary: 'List inventory items under your current tenant' })
+  @ApiResponse({ status: 200, description: 'Inventory items retrieved for your current tenant' })
   @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
   @ApiQuery({ name: 'limit', required: false, type: String, example: '20' })
   list(

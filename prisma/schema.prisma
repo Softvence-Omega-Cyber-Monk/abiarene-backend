@@ -147,7 +147,7 @@ model User {
 model Admin {
   id        String   @id @default(uuid())
   email     String   @unique
-  password  String
+  pin       String
   name      String
   status    String   @default("ACTIVE")
   createdAt DateTime @default(now())

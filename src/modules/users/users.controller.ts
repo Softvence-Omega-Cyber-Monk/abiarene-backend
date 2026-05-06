@@ -12,6 +12,7 @@ import {
 import {
   ApiBearerAuth,
   ApiOperation,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -33,6 +34,14 @@ export class UsersController {
     return user.tenantId;
   }
 
+  private listDto(page: string, limit: string, search?: string): ListUsersDto {
+    return {
+      page: parseInt(page, 10),
+      limit: parseInt(limit, 10),
+      search,
+    };
+  }
+
   @Post()
   @Roles('manager')
   @ApiOperation({ summary: 'Create a user under current tenant' })
@@ -48,8 +57,19 @@ export class UsersController {
   @Roles('manager')
   @ApiOperation({ summary: 'List users under current tenant' })
   @ApiResponse({ status: 200, description: 'Users retrieved' })
-  list(@CurrentUser() user: AuthUser | undefined, @Query() dto: ListUsersDto) {
-    return this.usersService.listForTenant(this.tenantId(user), dto);
+  @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
+  @ApiQuery({ name: 'limit', required: false, type: String, example: '20' })
+  @ApiQuery({ name: 'search', required: false, type: String, example: 'john' })
+  list(
+    @CurrentUser() user: AuthUser | undefined,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '20',
+    @Query('search') search?: string,
+  ) {
+    return this.usersService.listForTenant(
+      this.tenantId(user),
+      this.listDto(page, limit, search),
+    );
   }
 
   @Get(':id')

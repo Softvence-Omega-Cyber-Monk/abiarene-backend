@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { PinLoginDto } from './auth.dto.js';
+import { LoginDto } from './auth.dto.js';
 
 @Injectable()
 export class AuthService {
@@ -32,7 +32,24 @@ export class AuthService {
     });
   }
 
-  async pinLogin(dto: PinLoginDto) {
+  async login(dto: LoginDto) {
+    const admin = await this.prisma.admin.findFirst({
+      where: { email: dto.email, pin: dto.pin, status: 'ACTIVE' },
+    });
+
+    if (admin) {
+      const payload = {
+        sub: admin.id,
+        email: admin.email,
+        role: 'admin',
+      };
+
+      return {
+        accessToken: await this.jwtService.signAsync(payload),
+        user: payload,
+      };
+    }
+
     const user = (await this.prisma.user.findFirst({
       where: { pin: dto.pin, email: dto.email, status: 'ACTIVE' },
       include: { role: true },

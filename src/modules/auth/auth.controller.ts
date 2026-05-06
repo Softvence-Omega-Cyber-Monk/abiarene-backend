@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { AuthService } from './auth.service.js';
-import { PinLoginDto, TenantResponse, UserResponse } from './auth.dto.js';
+import { LoginDto, TenantResponse, UserResponse } from './auth.dto.js';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -25,12 +25,12 @@ export class AuthController {
     return this.authService.getTenantUsers(tenantId);
   }
 
-  @Post('pin-login')
+  @Post('login')
   @Public()
-  @ApiOperation({ summary: 'Authenticate user by PIN' })
-  @ApiResponse({ status: 201, description: 'PIN authentication successful' })
-  @ApiResponse({ status: 401, description: 'Invalid PIN' })
-  pinLogin(@Body() dto: PinLoginDto) {
-    return this.authService.pinLogin(dto);
+  @ApiOperation({ summary: 'Authenticate admin or staff by email and PIN' })
+  @ApiResponse({ status: 201, description: 'Authentication successful' })
+  @ApiResponse({ status: 401, description: 'Invalid email or PIN' })
+  login(@Body() dto: LoginDto) {
+    return this.authService.login(dto);
   }
 }

@@ -2,13 +2,14 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { CreateUsersDto, ListUsersDto, UpdateUsersDto } from './users.dto.js';
 import { StaffRoleName } from '../../common/constants/role-name.js';
-import { randomUUID } from 'crypto';
 
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async createForTenant(tenantId: string, dto: CreateUsersDto) {
+    await this.ensureEmailAvailable(dto.email);
+
     const role = await this.validateRoleAndPin(
       tenantId,
       dto.role,
@@ -18,7 +19,7 @@ export class UsersService {
     return this.prisma.user.create({
       data: {
         name: dto.name,
-        email: this.generateInternalEmail(tenantId),
+        email: dto.email,
         pin: dto.pin,
         roleId: role.id,
         tenantId,
@@ -53,6 +54,7 @@ export class UsersService {
       where: { id, tenantId },
       select: {
         id: true,
+        email: true,
         pin: true,
         roleId: true,
         role: { select: { name: true } },
@@ -70,10 +72,13 @@ export class UsersService {
       id,
     );
 
+    await this.ensureEmailAvailable(dto.email ?? existingUser.email, id);
+
     await this.prisma.user.updateMany({
       where: { id, tenantId },
       data: {
         name: dto.name,
+        email: dto.email,
         pin: dto.pin,
         roleId: role.id,
         status: dto.status,
@@ -119,7 +124,23 @@ export class UsersService {
     return role;
   }
 
-  private generateInternalEmail(tenantId: string) {
-    return `user-${tenantId}-${randomUUID()}@tenant.local`;
+  private async ensureEmailAvailable(email: string, userIdToExclude?: string) {
+    const [existingUser, existingAdmin] = await Promise.all([
+      this.prisma.user.findFirst({
+        where: {
+          email,
+          id: userIdToExclude ? { not: userIdToExclude } : undefined,
+        },
+        select: { id: true },
+      }),
+      this.prisma.admin.findFirst({
+        where: { email },
+        select: { id: true },
+      }),
+    ]);
+
+    if (existingUser || existingAdmin) {
+      throw new BadRequestException('Email already exists');
+    }
   }
 }
