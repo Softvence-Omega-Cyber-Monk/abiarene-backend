@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+import { ArrayUnique, IsArray, IsBoolean, IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 import { PaginationDto } from '../../common/dto/pagination.dto.js';
 
 export class CreateMenuDto {
@@ -21,6 +21,17 @@ export class CreateMenuDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiPropertyOptional({
+    description: 'Custom item options that staff or customers can choose from',
+    example: ['Extra spicy', 'No Onion', 'Less Salt'],
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayUnique()
+  options?: string[];
 
   @ApiProperty({ description: 'Item price', example: 12.5 })
   @Type(() => Number)

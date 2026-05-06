@@ -32,7 +32,11 @@ export class UpdateTablesDto extends PartialType(CreateTablesDto) {}
 export class ListTablesDto extends PaginationDto {}
 
 export class SetTableItemsDto {
-  @ApiProperty({ type: [String], description: 'Tenant item IDs assigned to this table' })
+  @ApiProperty({ description: 'Shared menu name for this tenant', example: 'Main Menu' })
+  @IsString()
+  name!: string;
+
+  @ApiProperty({ type: [String], description: 'Tenant item IDs assigned to the shared menu' })
   @IsArray()
   @ArrayUnique()
   @IsString({ each: true })

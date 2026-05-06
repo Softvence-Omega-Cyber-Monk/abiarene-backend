@@ -98,6 +98,7 @@ async function main() {
       name: product.name,
       category: 'Pizza',
       description: 'Classic pizza item for demo table assignment',
+      options: ['Extra spicy', 'No Onion', 'Less Salt'],
       price: 13.5,
       isActive: true,
     },
@@ -108,21 +109,35 @@ async function main() {
       name: product.name,
       category: 'Pizza',
       description: 'Classic pizza item for demo table assignment',
+      options: ['Extra spicy', 'No Onion', 'Less Salt'],
       price: 13.5,
       isActive: true,
     },
   });
 
-  await prisma.tableMenuItem.upsert({
-    where: { id: 'table-item-demo-1' },
+  await prisma.menu.upsert({
+    where: { tenantId: tenant.id },
     update: {
-      tableId: table.id,
-      menuItemId: item.id,
+      name: 'Main Menu',
+      items: {
+        deleteMany: {},
+        create: [
+          {
+            itemId: item.id,
+          },
+        ],
+      },
     },
     create: {
-      id: 'table-item-demo-1',
-      tableId: table.id,
-      menuItemId: item.id,
+      tenantId: tenant.id,
+      name: 'Main Menu',
+      items: {
+        create: [
+          {
+            itemId: item.id,
+          },
+        ],
+      },
     },
   });
 }

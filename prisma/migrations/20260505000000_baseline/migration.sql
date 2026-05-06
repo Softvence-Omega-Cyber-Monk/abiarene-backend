@@ -46,6 +46,17 @@ CREATE TABLE "tenants" (
 );
 
 -- CreateTable
+CREATE TABLE "menus" (
+    "id" TEXT NOT NULL,
+    "tenantId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "menus_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "roles" (
     "id" TEXT NOT NULL,
     "name" "RoleName" NOT NULL,
@@ -120,6 +131,7 @@ CREATE TABLE "menu_items" (
     "name" TEXT NOT NULL,
     "category" TEXT NOT NULL,
     "description" TEXT,
+    "options" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
     "price" DOUBLE PRECISION NOT NULL,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -142,13 +154,13 @@ CREATE TABLE "tables" (
 );
 
 -- CreateTable
-CREATE TABLE "table_menu_items" (
+CREATE TABLE "menu_selections" (
     "id" TEXT NOT NULL,
-    "tableId" TEXT NOT NULL,
-    "menuItemId" TEXT NOT NULL,
+    "menuId" TEXT NOT NULL,
+    "itemId" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "table_menu_items_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "menu_selections_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -171,6 +183,7 @@ CREATE TABLE "order_items" (
     "menuItemId" TEXT NOT NULL,
     "quantity" INTEGER NOT NULL DEFAULT 1,
     "notes" TEXT,
+    "selectedOptions" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "order_items_pkey" PRIMARY KEY ("id")
@@ -241,6 +254,9 @@ CREATE TABLE "support_tickets" (
 );
 
 -- CreateIndex
+CREATE UNIQUE INDEX "menus_tenantId_key" ON "menus"("tenantId");
+
+-- CreateIndex
 CREATE INDEX "roles_tenantId_idx" ON "roles"("tenantId");
 
 -- CreateIndex
@@ -277,13 +293,13 @@ CREATE INDEX "tables_tenantId_idx" ON "tables"("tenantId");
 CREATE UNIQUE INDEX "tables_tableNumber_tenantId_key" ON "tables"("tableNumber", "tenantId");
 
 -- CreateIndex
-CREATE INDEX "table_menu_items_tableId_idx" ON "table_menu_items"("tableId");
+CREATE INDEX "menu_selections_menuId_idx" ON "menu_selections"("menuId");
 
 -- CreateIndex
-CREATE INDEX "table_menu_items_menuItemId_idx" ON "table_menu_items"("menuItemId");
+CREATE INDEX "menu_selections_itemId_idx" ON "menu_selections"("itemId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "table_menu_items_tableId_menuItemId_key" ON "table_menu_items"("tableId", "menuItemId");
+CREATE UNIQUE INDEX "menu_selections_menuId_itemId_key" ON "menu_selections"("menuId", "itemId");
 
 -- CreateIndex
 CREATE INDEX "orders_tenantId_idx" ON "orders"("tenantId");
@@ -322,6 +338,9 @@ CREATE INDEX "discount_requests_orderId_idx" ON "discount_requests"("orderId");
 CREATE INDEX "support_tickets_tenantId_idx" ON "support_tickets"("tenantId");
 
 -- AddForeignKey
+ALTER TABLE "menus" ADD CONSTRAINT "menus_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "roles" ADD CONSTRAINT "roles_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -343,10 +362,10 @@ ALTER TABLE "menu_items" ADD CONSTRAINT "menu_items_tenantId_fkey" FOREIGN KEY (
 ALTER TABLE "tables" ADD CONSTRAINT "tables_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "table_menu_items" ADD CONSTRAINT "table_menu_items_tableId_fkey" FOREIGN KEY ("tableId") REFERENCES "tables"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "menu_selections" ADD CONSTRAINT "menu_selections_menuId_fkey" FOREIGN KEY ("menuId") REFERENCES "menus"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "table_menu_items" ADD CONSTRAINT "table_menu_items_menuItemId_fkey" FOREIGN KEY ("menuItemId") REFERENCES "menu_items"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "menu_selections" ADD CONSTRAINT "menu_selections_itemId_fkey" FOREIGN KEY ("itemId") REFERENCES "menu_items"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "orders" ADD CONSTRAINT "orders_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;

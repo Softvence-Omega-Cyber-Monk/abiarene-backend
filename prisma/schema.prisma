@@ -89,6 +89,7 @@ model Tenant {
   users           User[]
   roles           Role[]
   products        Product[]
+  menu            Menu?
   menuItems       MenuItem[]
   tables          Table[]
   orders          Order[]
@@ -98,6 +99,19 @@ model Tenant {
   supportTickets  SupportTicket[]
 
   @@map("tenants")
+}
+
+model Menu {
+  id         String          @id @default(uuid())
+  tenantId    String         @unique
+  name       String
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  tenant     Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items      MenuSelection[]
+
+  @@map("menus")
 }
 
 // ─── Role ───────────────────────────────────────────────────────
@@ -202,13 +216,14 @@ model MenuItem {
   name        String
   category    String
   description String?
+  options     String[]        @default([])
   price       Float
   isActive    Boolean         @default(true)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
   tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  tableItems  TableMenuItem[]
+  menuSelections MenuSelection[]
   orderItems  OrderItem[]
 
   @@index([tenantId])
@@ -227,7 +242,6 @@ model Table {
   updatedAt   DateTime    @updatedAt
 
   tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  menuItems   TableMenuItem[]
   orders      Order[]
 
   @@index([tenantId])
@@ -235,19 +249,19 @@ model Table {
   @@map("tables")
 }
 
-model TableMenuItem {
+model MenuSelection {
   id         String    @id @default(uuid())
-  tableId     String
-  menuItemId  String
+  menuId      String
+  itemId      String
   createdAt   DateTime @default(now())
 
-  table       Table    @relation(fields: [tableId], references: [id], onDelete: Cascade)
-  menuItem    MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  menu        Menu     @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  item        MenuItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
-  @@index([tableId])
-  @@index([menuItemId])
-  @@unique([tableId, menuItemId])
-  @@map("table_menu_items")
+  @@index([menuId])
+  @@index([itemId])
+  @@unique([menuId, itemId])
+  @@map("menu_selections")
 }
 
 // ─── Order ──────────────────────────────────────────────────────
@@ -283,6 +297,7 @@ model OrderItem {
   menuItemId String
   quantity   Int      @default(1)
   notes      String?
+  selectedOptions String[] @default([])
   createdAt  DateTime @default(now())
 
   order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)

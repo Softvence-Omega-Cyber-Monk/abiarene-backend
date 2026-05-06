@@ -125,6 +125,36 @@ export class TablesController {
     return this.service.list(tenantId, this.listDto(page, limit));
   }
 
+  @Get('tenant/:tenantId/menu')
+  @Roles('admin')
+  @ApiOperation({ summary: 'Admin get the shared menu under a specified tenant' })
+  @ApiResponse({ status: 200, description: 'Shared menu retrieved for the specified tenant' })
+  getMenuForTenant(@Param('tenantId') tenantId: string) {
+    return this.service.getMenu(tenantId);
+  }
+
+  @Patch('tenant/:tenantId/menu')
+  @Roles('admin')
+  @ApiOperation({ summary: 'Admin add new items to the shared menu for all tables under a specified tenant' })
+  @ApiResponse({ status: 200, description: 'New shared menu items added for all tables under the specified tenant' })
+  setMenuForTenant(
+    @Param('tenantId') tenantId: string,
+    @Body() dto: SetTableItemsDto,
+  ) {
+    return this.service.setMenu(tenantId, dto);
+  }
+
+  @Delete('tenant/:tenantId/menu/items/:itemId')
+  @Roles('admin')
+  @ApiOperation({ summary: 'Admin remove one item from the shared menu under a specified tenant' })
+  @ApiResponse({ status: 200, description: 'Shared menu item removed for the specified tenant' })
+  removeMenuItemForTenant(
+    @Param('tenantId') tenantId: string,
+    @Param('itemId') itemId: string,
+  ) {
+    return this.service.removeMenuItem(tenantId, itemId);
+  }
+
   @Get('tenant/:tenantId/:id')
   @Roles('admin')
   @ApiOperation({ summary: 'Admin get table by ID under any tenant' })
@@ -135,8 +165,8 @@ export class TablesController {
 
   @Get('tenant/:tenantId/:id/items')
   @Roles('admin')
-  @ApiOperation({ summary: 'Admin list items assigned to a table under any tenant' })
-  @ApiResponse({ status: 200, description: 'Table items retrieved' })
+  @ApiOperation({ summary: 'Admin list shared menu items for a table under a specified tenant' })
+  @ApiResponse({ status: 200, description: 'Shared menu items retrieved for the specified tenant' })
   listItemsForTenant(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
@@ -164,16 +194,33 @@ export class TablesController {
     return this.service.delete(tenantId, id);
   }
 
-  @Patch('tenant/:tenantId/:id/items')
-  @Roles('admin')
-  @ApiOperation({ summary: 'Admin assign items to a table under any tenant' })
-  @ApiResponse({ status: 200, description: 'Table items updated' })
-  setItemsForTenant(
-    @Param('tenantId') tenantId: string,
-    @Param('id') id: string,
+  @Get('menu')
+  @ApiOperation({ summary: 'Get the shared menu under your current tenant' })
+  @ApiResponse({ status: 200, description: 'Shared menu retrieved for your current tenant' })
+  getMenu(@CurrentUser() user: AuthUser | undefined) {
+    return this.service.getMenu(this.tenantId(user));
+  }
+
+  @Patch('menu')
+  @Roles('manager')
+  @ApiOperation({ summary: 'Add new items to the shared menu for all tables under your current tenant' })
+  @ApiResponse({ status: 200, description: 'New shared menu items added for all tables under your current tenant' })
+  setMenu(
+    @CurrentUser() user: AuthUser | undefined,
     @Body() dto: SetTableItemsDto,
   ) {
-    return this.service.setItems(tenantId, id, dto);
+    return this.service.setMenu(this.tenantId(user), dto);
+  }
+
+  @Delete('menu/items/:itemId')
+  @Roles('manager')
+  @ApiOperation({ summary: 'Remove one item from the shared menu under your current tenant' })
+  @ApiResponse({ status: 200, description: 'Shared menu item removed for your current tenant' })
+  removeMenuItem(
+    @CurrentUser() user: AuthUser | undefined,
+    @Param('itemId') itemId: string,
+  ) {
+    return this.service.removeMenuItem(this.tenantId(user), itemId);
   }
 
   @Get(':id')
@@ -184,8 +231,8 @@ export class TablesController {
   }
 
   @Get(':id/items')
-  @ApiOperation({ summary: 'List items assigned to a table' })
-  @ApiResponse({ status: 200, description: 'Table items retrieved' })
+  @ApiOperation({ summary: 'List shared menu items for a table under your current tenant' })
+  @ApiResponse({ status: 200, description: 'Shared menu items retrieved for your current tenant' })
   listItems(
     @CurrentUser() user: AuthUser | undefined,
     @Param('id') id: string,
@@ -234,17 +281,5 @@ export class TablesController {
   @ApiResponse({ status: 200, description: 'Table deleted' })
   delete(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
     return this.service.delete(this.tenantId(user), id);
-  }
-
-  @Patch(':id/items')
-  @Roles('manager')
-  @ApiOperation({ summary: 'Assign items to a table' })
-  @ApiResponse({ status: 200, description: 'Table items updated' })
-  setItems(
-    @CurrentUser() user: AuthUser | undefined,
-    @Param('id') id: string,
-    @Body() dto: SetTableItemsDto,
-  ) {
-    return this.service.setItems(this.tenantId(user), id, dto);
   }
 }

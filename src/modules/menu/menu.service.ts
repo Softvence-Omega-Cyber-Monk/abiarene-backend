@@ -14,6 +14,7 @@ export class MenuService {
         name: dto.name,
         category: dto.category,
         description: dto.description,
+        options: dto.options ?? [],
         price: dto.price,
         isActive: dto.isActive ?? true,
       } as any,
@@ -41,9 +42,9 @@ export class MenuService {
     return this.prisma.menuItem.findFirst({
       where: { tenantId, id } as any,
       include: {
-        tableItems: {
+        menuSelections: {
           include: {
-            table: true,
+            menu: true,
           },
         },
       } as any,
@@ -58,6 +59,7 @@ export class MenuService {
         name: dto.name,
         category: dto.category,
         description: dto.description,
+        options: dto.options,
         price: dto.price,
         isActive: dto.isActive,
       } as any,

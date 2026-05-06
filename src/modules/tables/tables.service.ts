@@ -14,7 +14,8 @@ export class TablesService {
 
   async create(tenantId: string, dto: CreateTablesDto) {
     try {
-      return await this.prisma.table.create({ data: { ...dto, tenantId } as any });
+      const table = await this.prisma.table.create({ data: { ...dto, tenantId } as any });
+      return this.read(tenantId, table.id);
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -41,13 +42,6 @@ export class TablesService {
   read(tenantId: string, id: string) {
     return this.prisma.table.findFirst({
       where: { tenantId, id } as any,
-      include: {
-        menuItems: {
-          include: {
-            menuItem: true,
-          },
-        },
-      } as any,
     });
   }
 
@@ -64,56 +58,123 @@ export class TablesService {
     return this.prisma.table
       .findFirst({
         where: { id, tenantId } as any,
-        select: {
-          menuItems: {
-            include: {
-              menuItem: true,
-            },
-            orderBy: {
-              createdAt: 'asc',
-            },
-          },
-        },
+        select: { id: true },
       })
-      .then((table) => table?.menuItems ?? []);
+      .then(async (table) => {
+        if (!table) {
+          throw new BadRequestException('Table not found for this tenant');
+        }
+
+        const menu = await this.getMenu(tenantId);
+        return menu?.items ?? [];
+      });
   }
 
-  async setItems(tenantId: string, id: string, dto: SetTableItemsDto) {
-    const table = await this.prisma.table.findFirst({
-      where: { id, tenantId },
-      select: { id: true },
-    });
-
-    if (!table) {
-      throw new BadRequestException('Table not found for this tenant');
-    }
+  async setMenu(tenantId: string, dto: SetTableItemsDto) {
+    const uniqueItemIds = [...new Set(dto.itemIds)];
 
     const items = await this.prisma.menuItem.findMany({
       where: {
         tenantId,
-        id: { in: dto.itemIds },
+        id: { in: uniqueItemIds },
       } as any,
       select: { id: true },
     });
 
-    if (items.length !== dto.itemIds.length) {
+    if (items.length !== uniqueItemIds.length) {
       throw new BadRequestException(
         'One or more items do not belong to this tenant',
       );
     }
 
-    await this.prisma.table.update({
-      where: { id },
-      data: {
-        menuItems: {
-          deleteMany: {},
-          create: dto.itemIds.map((itemId) => ({
-            menuItemId: itemId,
-          })),
+    const existingMenu = await this.prisma.menu.findFirst({
+      where: { tenantId },
+      select: { id: true },
+    });
+
+    if (existingMenu) {
+      const existingSelections = await this.prisma.menuSelection.findMany({
+        where: { menuId: existingMenu.id } as any,
+        select: { itemId: true },
+      });
+
+      const existingItemIds = new Set(
+        existingSelections.map((selection) => selection.itemId),
+      );
+      const itemIdsToAdd = uniqueItemIds.filter(
+        (itemId) => !existingItemIds.has(itemId),
+      );
+
+      await this.prisma.menu.update({
+        where: { id: existingMenu.id },
+        data: {
+          name: dto.name,
+          items: {
+            create: itemIdsToAdd.map((itemId) => ({
+              itemId,
+            })),
+          },
+        },
+      });
+    } else {
+      await this.prisma.menu.create({
+        data: {
+          tenantId,
+          name: dto.name,
+          items: {
+            create: uniqueItemIds.map((itemId) => ({
+              itemId,
+            })),
+          },
+        },
+      });
+    }
+
+    return this.getMenu(tenantId);
+  }
+
+  async removeMenuItem(tenantId: string, itemId: string) {
+    const menu = await this.prisma.menu.findFirst({
+      where: { tenantId },
+      select: { id: true },
+    });
+
+    if (!menu) {
+      throw new BadRequestException('Shared menu not found for this tenant');
+    }
+
+    const selection = await this.prisma.menuSelection.findFirst({
+      where: {
+        menuId: menu.id,
+        itemId,
+      } as any,
+      select: { id: true },
+    });
+
+    if (!selection) {
+      throw new BadRequestException('Item is not assigned to the shared menu');
+    }
+
+    await this.prisma.menuSelection.delete({
+      where: { id: selection.id },
+    });
+
+    return this.getMenu(tenantId);
+  }
+
+  getMenu(tenantId: string) {
+    return this.prisma.menu.findFirst({
+      where: { tenantId },
+      include: {
+        items: {
+          include: {
+            item: true,
+          },
+          orderBy: {
+            createdAt: 'asc',
+          },
         },
       },
     });
-
-    return this.listItems(tenantId, id);
   }
 }

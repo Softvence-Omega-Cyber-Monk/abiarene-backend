@@ -14,4 +14,9 @@ export class CreateTicketsDto {
 }
 
 export class UpdateTicketsDto extends PartialType(CreateTicketsDto) {}
-export class ListTicketsDto extends PaginationDto {}
+export class ListTicketsDto extends PaginationDto {
+  @ApiPropertyOptional({ enum: ['ACTIVE', 'READY', 'ARCHIVED'] })
+  @IsOptional()
+  @IsIn(['ACTIVE', 'READY', 'ARCHIVED'])
+  status?: 'ACTIVE' | 'READY' | 'ARCHIVED';
+}
