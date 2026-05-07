@@ -24,6 +24,7 @@ import {
   ListTenantDto,
   ListTenantRolesDto,
   UpdateTenantRolesDto,
+  UpdateTenantStatusDto,
   UpdateTenantDto,
 } from './tenant.dto.js';
 import { TenantService } from './tenant.service.js';
@@ -126,5 +127,21 @@ export class TenantController {
     }
 
     return this.service.updateRoles(tenantId, dto);
+  }
+
+  @Patch(':tenantId/status')
+  @ApiOperation({ summary: 'Update tenant active or inactive status for admin' })
+  @ApiResponse({ status: 200, description: 'Tenant status updated' })
+  @ApiResponse({ status: 403, description: 'This route is for admin only' })
+  updateStatus(
+    @CurrentUser() user: AuthUser | undefined,
+    @Param('tenantId') tenantId: string,
+    @Body() dto: UpdateTenantStatusDto,
+  ) {
+    if (user?.role !== 'admin') {
+      throw new ForbiddenException('This route is for admin only');
+    }
+
+    return this.service.updateStatus(tenantId, dto.status);
   }
 }

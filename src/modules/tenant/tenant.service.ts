@@ -9,6 +9,7 @@ import {
   UpdateTenantDto,
 } from './tenant.dto.js';
 import { RoleName } from '../../common/constants/role-name.js';
+import { buildPaginatedResponse } from '../../common/utils/pagination.js';
 
 const DEFAULT_TENANT_ROLE = RoleName.MANAGER;
 
@@ -121,21 +122,32 @@ export class TenantService {
       });
   }
 
-  listAll(dto: ListTenantDto) {
-    return this.prisma.tenant.findMany({
-      skip: (dto.page - 1) * dto.limit,
-      take: dto.limit,
-      orderBy: { createdAt: 'desc' },
-    });
+  async listAll(dto: ListTenantDto) {
+    const [tenants, total] = await Promise.all([
+      this.prisma.tenant.findMany({
+        skip: (dto.page - 1) * dto.limit,
+        take: dto.limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.tenant.count(),
+    ]);
+
+    return buildPaginatedResponse(tenants, dto.page, dto.limit, total);
   }
 
-  list(tenantId: string, dto: ListTenantDto) {
-    return this.prisma.tenant.findMany({
-      where: { id: tenantId },
-      skip: (dto.page - 1) * dto.limit,
-      take: dto.limit,
-      orderBy: { createdAt: 'desc' },
-    });
+  async list(tenantId: string, dto: ListTenantDto) {
+    const where = { id: tenantId };
+    const [tenants, total] = await Promise.all([
+      this.prisma.tenant.findMany({
+        where,
+        skip: (dto.page - 1) * dto.limit,
+        take: dto.limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.tenant.count({ where }),
+    ]);
+
+    return buildPaginatedResponse(tenants, dto.page, dto.limit, total);
   }
 
   read(tenantId: string, id: string) {
@@ -180,7 +192,7 @@ export class TenantService {
       this.prisma.role.count({ where: { tenantId } }),
     ]);
 
-    return { data: roles, total, page: dto.page, limit: dto.limit };
+    return buildPaginatedResponse(roles, dto.page, dto.limit, total);
   }
 
   async updateRoles(tenantId: string, dto: UpdateTenantRolesDto) {
@@ -209,6 +221,15 @@ export class TenantService {
     return this.prisma.role.findMany({
       where: { tenantId },
       orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async updateStatus(tenantId: string, status: 'ACTIVE' | 'INACTIVE') {
+    await this.ensureTenantExists(tenantId);
+
+    return this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: { status },
     });
   }
 

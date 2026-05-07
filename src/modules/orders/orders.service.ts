@@ -1,10 +1,15 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { CreateOrdersDto, ListOrdersDto, OrderItemDto, UpdateOrdersDto } from './orders.dto.js';
+import { TicketsService } from '../tickets/tickets.service.js';
+import { buildPaginatedResponse } from '../../common/utils/pagination.js';
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly ticketsService: TicketsService,
+  ) {}
 
   private readonly orderInclude = {
     table: true,
@@ -30,6 +35,68 @@ export class OrdersService {
       },
     },
   };
+
+  private formatOrderListItem(order: {
+    id: string;
+    tenantId: string;
+    tableId: string;
+    status: string;
+    createdBy: string;
+    createdAt: Date;
+    updatedAt: Date;
+    table: {
+      id: string;
+      tableNumber: number;
+      seatCount: number;
+      status: string;
+    };
+    items: {
+      id: string;
+      menuItemId: string;
+      quantity: number;
+      notes: string | null;
+      selectedOptions: string[];
+      menuItem: {
+        id: string;
+        name: string;
+        category: string;
+        price: number;
+        image: string | null;
+      };
+    }[];
+    tickets: {
+      id: string;
+      ticketCode: string;
+      status: string;
+      createdAt: Date;
+      updatedAt: Date;
+    }[];
+  }) {
+    const latestTicket = order.tickets[0] ?? null;
+
+    return {
+      id: order.id,
+      tenantId: order.tenantId,
+      tableId: order.tableId,
+      status: order.status,
+      createdBy: order.createdBy,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+      table: order.table,
+      items: order.items.map((item) => ({
+        id: item.id,
+        itemId: item.menuItemId,
+        quantity: item.quantity,
+        notes: item.notes,
+        selectedOptions: item.selectedOptions,
+        item: item.menuItem,
+      })),
+      ticket: latestTicket,
+      meta: {
+        itemCount: order.items.length,
+      },
+    };
+  }
 
   private async prepareOrderItems(tenantId: string, items: OrderItemDto[]) {
     if (items.length === 0) {
@@ -125,14 +192,76 @@ export class OrdersService {
     return this.read(tenantId, order.id);
   }
 
-  list(tenantId: string, dto: ListOrdersDto) {
-    return this.prisma.order.findMany({
-      where: { tenantId },
-      skip: (dto.page - 1) * dto.limit,
-      take: dto.limit,
-      include: this.orderInclude,
-      orderBy: { createdAt: 'desc' },
-    });
+  async list(tenantId: string, dto: ListOrdersDto) {
+    const where = {
+      tenantId,
+      status: {
+        not: 'COMPLETED' as const,
+      },
+    };
+
+    const [orders, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where,
+        skip: (dto.page - 1) * dto.limit,
+        take: dto.limit,
+        select: {
+          id: true,
+          tenantId: true,
+          tableId: true,
+          status: true,
+          createdBy: true,
+          createdAt: true,
+          updatedAt: true,
+          table: {
+            select: {
+              id: true,
+              tableNumber: true,
+              seatCount: true,
+              status: true,
+            },
+          },
+          items: {
+            select: {
+              id: true,
+              menuItemId: true,
+              quantity: true,
+              notes: true,
+              selectedOptions: true,
+              menuItem: {
+                select: {
+                  id: true,
+                  name: true,
+                  category: true,
+                  price: true,
+                  image: true,
+                },
+              },
+            },
+          },
+          tickets: {
+            select: {
+              id: true,
+              ticketCode: true,
+              status: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+            take: 1,
+            orderBy: { createdAt: 'desc' },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.order.count({ where }),
+    ]);
+
+    return buildPaginatedResponse(
+      orders.map((order) => this.formatOrderListItem(order)),
+      dto.page,
+      dto.limit,
+      total,
+    );
   }
 
   read(tenantId: string, id: string) {
@@ -162,6 +291,33 @@ export class OrdersService {
   }
 
   delete(tenantId: string, id: string) { return this.prisma.order.deleteMany({ where: { tenantId, id } }); }
+
+  async cancel(tenantId: string, id: string) {
+    const order = await this.prisma.order.findFirst({
+      where: { tenantId, id },
+      select: { id: true, tableId: true, status: true },
+    });
+
+    if (!order) {
+      throw new BadRequestException('Order not found for this tenant');
+    }
+
+    if (order.status === 'COMPLETED' || order.status === 'CANCELLED') {
+      throw new BadRequestException('Only active orders can be cancelled');
+    }
+
+    await this.prisma.order.updateMany({
+      where: { tenantId, id },
+      data: { status: 'CANCELLED' },
+    });
+
+    await this.prisma.table.updateMany({
+      where: { tenantId, id: order.tableId },
+      data: { status: 'AVAILABLE' },
+    });
+
+    return this.read(tenantId, id);
+  }
 
   async sendToKitchen(tenantId: string, id: string) {
     const order = await this.prisma.order.findFirst({
@@ -193,21 +349,15 @@ export class OrdersService {
       throw new BadRequestException('This order already has an active kitchen ticket');
     }
 
-    await this.prisma.ticket.create({
-      data: {
-        orderId: id,
-        tenantId,
-        items: {
-          create: order.items.map((item) => ({
-            orderItemId: item.id,
-          })),
-        },
-      },
-    });
+    await this.ticketsService.createKitchenTicket(
+      tenantId,
+      id,
+      order.items.map((item) => item.id),
+    );
 
     await this.prisma.order.updateMany({
       where: { tenantId, id },
-      data: { status: 'IN_KITCHEN' },
+      data: { status: 'PREPARING' },
     });
 
     return this.read(tenantId, id);

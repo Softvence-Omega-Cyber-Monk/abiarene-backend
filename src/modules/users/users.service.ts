@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { CreateUsersDto, ListUsersDto, UpdateUsersDto } from './users.dto.js';
 import { StaffRoleName } from '../../common/constants/role-name.js';
+import { buildPaginatedResponse } from '../../common/utils/pagination.js';
 
 @Injectable()
 export class UsersService {
@@ -27,19 +28,26 @@ export class UsersService {
     });
   }
 
-  listForTenant(tenantId: string, dto: ListUsersDto) {
-    return this.prisma.user.findMany({
-      where: {
-        tenantId,
-        name: dto.search
-          ? { contains: dto.search, mode: 'insensitive' }
-          : undefined,
-      },
-      skip: (dto.page - 1) * dto.limit,
-      take: dto.limit,
-      include: { role: true },
-      orderBy: { createdAt: 'desc' },
-    });
+  async listForTenant(tenantId: string, dto: ListUsersDto) {
+    const where = {
+      tenantId,
+      name: dto.search
+        ? { contains: dto.search, mode: 'insensitive' as const }
+        : undefined,
+    };
+
+    const [users, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        skip: (dto.page - 1) * dto.limit,
+        take: dto.limit,
+        include: { role: true },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return buildPaginatedResponse(users, dto.page, dto.limit, total);
   }
 
   readForTenant(tenantId: string, id: string) {

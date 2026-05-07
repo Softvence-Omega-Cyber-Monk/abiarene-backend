@@ -44,10 +44,10 @@ export class CreateOrdersDto {
 }
 
 export class UpdateOrdersDto extends PartialType(CreateOrdersDto) {
-  @ApiPropertyOptional({ enum: ['PENDING', 'IN_KITCHEN', 'READY', 'COMPLETED', 'CANCELLED'] })
+  @ApiPropertyOptional({ enum: ['CONFIRMED', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED'] })
   @IsOptional()
-  @IsIn(['PENDING', 'IN_KITCHEN', 'READY', 'COMPLETED', 'CANCELLED'])
-  status?: 'PENDING' | 'IN_KITCHEN' | 'READY' | 'COMPLETED' | 'CANCELLED';
+  @IsIn(['CONFIRMED', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED'])
+  status?: 'CONFIRMED' | 'PREPARING' | 'READY' | 'COMPLETED' | 'CANCELLED';
 }
 
 export class ListOrdersDto extends PaginationDto {}

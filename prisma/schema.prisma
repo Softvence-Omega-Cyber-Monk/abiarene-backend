@@ -35,8 +35,8 @@ enum TableStatus {
 }
 
 enum OrderStatus {
-  PENDING
-  IN_KITCHEN
+  CONFIRMED
+  PREPARING
   READY
   COMPLETED
   CANCELLED
@@ -69,9 +69,12 @@ enum DiscountStatus {
 
 enum SupportTicketStatus {
   OPEN
-  IN_PROGRESS
-  RESOLVED
   CLOSED
+}
+
+enum SupportMessageSenderRole {
+  ADMIN
+  MANAGER
 }
 
 // ─── Tenant ─────────────────────────────────────────────────────
@@ -270,7 +273,7 @@ model Order {
   id         String      @id @default(uuid())
   tenantId   String
   tableId    String
-  status     OrderStatus @default(PENDING)
+  status     OrderStatus @default(CONFIRMED)
   createdBy  String
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
@@ -312,6 +315,7 @@ model OrderItem {
 
 model Ticket {
   id        String       @id @default(uuid())
+  ticketCode String      @unique
   orderId   String
   tenantId  String
   status    TicketStatus @default(ACTIVE)
@@ -396,7 +400,23 @@ model SupportTicket {
   updatedAt DateTime            @updatedAt
 
   tenant    Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  messages  SupportTicketMessage[]
 
   @@index([tenantId])
   @@map("support_tickets")
+}
+
+model SupportTicketMessage {
+  id         String                   @id @default(uuid())
+  ticketId    String
+  senderRole  SupportMessageSenderRole
+  senderName  String
+  senderEmail String
+  message     String
+  createdAt   DateTime                @default(now())
+
+  ticket      SupportTicket           @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("support_ticket_messages")
 }

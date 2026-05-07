@@ -1,9 +1,9 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Param, Post, Query, UnauthorizedException } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { AuthUser } from '../../common/interfaces/auth-user.interface.js';
-import { CreateTicketsDto, ListTicketsDto, UpdateTicketsDto } from './tickets.dto.js';
+import { ListTicketsDto } from './tickets.dto.js';
 import { TicketsService } from './tickets.service.js';
 
 @ApiTags('Tickets')
@@ -14,14 +14,6 @@ export class TicketsController {
   private tenantId(user?: AuthUser) {
     if (!user?.tenantId) throw new UnauthorizedException('Missing tenant context');
     return user.tenantId;
-  }
-
-  @Post()
-  @Roles('manager', 'server')
-  @ApiOperation({ summary: 'Create ticket under your current tenant' })
-  @ApiResponse({ status: 201, description: 'Ticket created' })
-  create(@CurrentUser() user: AuthUser | undefined, @Body() dto: CreateTicketsDto) {
-    return this.service.create(this.tenantId(user), dto);
   }
 
   @Get()
@@ -48,39 +40,19 @@ export class TicketsController {
     return this.service.read(this.tenantId(user), id);
   }
 
-  @Patch(':id')
-  @Roles('manager', 'server', 'kitchen')
-  @ApiOperation({ summary: 'Update ticket by ID under your current tenant' })
-  @ApiResponse({ status: 200, description: 'Ticket updated' })
-  update(
-    @CurrentUser() user: AuthUser | undefined,
-    @Param('id') id: string,
-    @Body() dto: UpdateTicketsDto,
-  ) {
-    return this.service.update(this.tenantId(user), id, dto);
-  }
-
-  @Delete(':id')
-  @Roles('manager')
-  @ApiOperation({ summary: 'Delete ticket by ID under your current tenant' })
-  @ApiResponse({ status: 200, description: 'Ticket deleted' })
-  delete(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
-    return this.service.delete(this.tenantId(user), id);
-  }
-
   @Post(':id/bump-to-ready')
   @Roles('kitchen', 'manager')
   @ApiOperation({ summary: 'Mark a kitchen ticket as ready under your current tenant' })
-  @ApiResponse({ status: 201, description: 'Kitchen ticket marked ready' })
+  @ApiResponse({ status: 201, description: 'Kitchen ticket marked ready and order status updated to READY' })
   bumpToReady(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
     return this.service.bumpToReady(this.tenantId(user), id);
   }
 
-  @Post(':id/archive')
+  @Post(':id/force-archive')
   @Roles('server', 'manager', 'kitchen')
-  @ApiOperation({ summary: 'Archive a kitchen ticket under your current tenant' })
-  @ApiResponse({ status: 201, description: 'Kitchen ticket archived' })
-  archive(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
+  @ApiOperation({ summary: 'Force archive a kitchen ticket under your current tenant' })
+  @ApiResponse({ status: 201, description: 'Kitchen ticket archived, order completed, and table released' })
+  forceArchive(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
     return this.service.archive(this.tenantId(user), id);
   }
 }

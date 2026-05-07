@@ -5,6 +5,7 @@ import {
   ListInventoryDto,
   UpdateInventoryDto,
 } from './inventory.dto.js';
+import { buildPaginatedResponse } from '../../common/utils/pagination.js';
 
 @Injectable()
 export class InventoryService {
@@ -14,13 +15,19 @@ export class InventoryService {
     return this.prisma.product.create({ data: { ...dto, tenantId } as any });
   }
 
-  list(tenantId: string, dto: ListInventoryDto) {
-    return this.prisma.product.findMany({
-      where: { tenantId } as any,
-      skip: (dto.page - 1) * dto.limit,
-      take: dto.limit,
-      orderBy: { createdAt: 'desc' } as any,
-    });
+  async list(tenantId: string, dto: ListInventoryDto) {
+    const where = { tenantId } as any;
+    const [products, total] = await Promise.all([
+      this.prisma.product.findMany({
+        where,
+        skip: (dto.page - 1) * dto.limit,
+        take: dto.limit,
+        orderBy: { createdAt: 'desc' } as any,
+      }),
+      this.prisma.product.count({ where }),
+    ]);
+
+    return buildPaginatedResponse(products, dto.page, dto.limit, total);
   }
 
   read(tenantId: string, id: string) {

@@ -3,7 +3,6 @@ import { Type } from 'class-transformer';
 import {
   IsBoolean,
   IsEmail,
-  IsEnum,
   IsIn,
   IsInt,
   Matches,
@@ -134,4 +133,14 @@ export class UpdateTenantRolesDto {
   @IsOptional()
   @IsBoolean()
   cashier?: boolean;
+}
+
+export class UpdateTenantStatusDto {
+  @ApiProperty({
+    description: 'Tenant status for admin update',
+    enum: ['ACTIVE', 'INACTIVE'],
+    example: 'INACTIVE',
+  })
+  @IsIn(['ACTIVE', 'INACTIVE'])
+  status!: 'ACTIVE' | 'INACTIVE';
 }

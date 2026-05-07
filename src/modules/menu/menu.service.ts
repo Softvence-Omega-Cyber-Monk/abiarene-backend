@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { CreateMenuDto, ListMenuDto, UpdateMenuDto } from './menu.dto.js';
+import { buildPaginatedResponse } from '../../common/utils/pagination.js';
 
 @Injectable()
 export class MenuService {
@@ -21,21 +22,28 @@ export class MenuService {
     });
   }
 
-  list(tenantId: string, dto: ListMenuDto) {
-    return this.prisma.menuItem.findMany({
-      where: {
-        tenantId,
-        OR: dto.search
-          ? [
-              { name: { contains: dto.search, mode: 'insensitive' } },
-              { category: { contains: dto.search, mode: 'insensitive' } },
-            ]
-          : undefined,
-      } as any,
-      skip: (dto.page - 1) * dto.limit,
-      take: dto.limit,
-      orderBy: { createdAt: 'desc' } as any,
-    });
+  async list(tenantId: string, dto: ListMenuDto) {
+    const where = {
+      tenantId,
+      OR: dto.search
+        ? [
+            { name: { contains: dto.search, mode: 'insensitive' as const } },
+            { category: { contains: dto.search, mode: 'insensitive' as const } },
+          ]
+        : undefined,
+    } as any;
+
+    const [items, total] = await Promise.all([
+      this.prisma.menuItem.findMany({
+        where,
+        skip: (dto.page - 1) * dto.limit,
+        take: dto.limit,
+        orderBy: { createdAt: 'desc' } as any,
+      }),
+      this.prisma.menuItem.count({ where }),
+    ]);
+
+    return buildPaginatedResponse(items, dto.page, dto.limit, total);
   }
 
   read(tenantId: string, id: string) {

@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { AuthUser } from '../../common/interfaces/auth-user.interface.js';
@@ -20,8 +20,8 @@ export class OrdersController {
 
   @Post()
   @Roles('manager', 'server')
-  @ApiOperation({ summary: 'Create an order with selected menu items for a table under your current tenant' })
-  @ApiResponse({ status: 201, description: 'Order created with selected menu items and table marked occupied under your current tenant' })
+  @ApiOperation({ summary: 'Create a confirmed order with selected menu items for a table under your current tenant' })
+  @ApiResponse({ status: 201, description: 'Confirmed order created with selected menu items and table marked occupied under your current tenant' })
   create(@CurrentUser() user: AuthUser | undefined, @Body() dto: CreateOrdersDto) {
     const me = this.me(user);
     return this.service.create(me.tenantId, me.sub, dto);
@@ -31,8 +31,17 @@ export class OrdersController {
   @Roles('manager', 'server')
   @ApiOperation({ summary: 'List orders under your current tenant' })
   @ApiResponse({ status: 200, description: 'Orders retrieved' })
-  list(@CurrentUser() user: AuthUser | undefined, @Query() dto: ListOrdersDto) {
-    return this.service.list(this.me(user).tenantId, dto);
+  @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
+  @ApiQuery({ name: 'limit', required: false, type: String, example: '20' })
+  list(
+    @CurrentUser() user: AuthUser | undefined,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '20',
+  ) {
+    return this.service.list(this.me(user).tenantId, {
+      page: parseInt(page, 10),
+      limit: parseInt(limit, 10),
+    } as ListOrdersDto);
   }
 
   @Get(':id')
@@ -63,10 +72,18 @@ export class OrdersController {
     return this.service.delete(this.me(user).tenantId, id);
   }
 
+  @Post(':id/cancel')
+  @Roles('manager', 'server')
+  @ApiOperation({ summary: 'Cancel an order under your current tenant' })
+  @ApiResponse({ status: 201, description: 'Order cancelled and table released' })
+  cancel(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
+    return this.service.cancel(this.me(user).tenantId, id);
+  }
+
   @Post(':id/send-to-kitchen')
   @Roles('manager', 'server')
   @ApiOperation({ summary: 'Send an order to kitchen and create a kitchen ticket under your current tenant' })
-  @ApiResponse({ status: 201, description: 'Order sent to kitchen and kitchen ticket created' })
+  @ApiResponse({ status: 201, description: 'Order sent to kitchen, kitchen ticket created, and order status changed to PREPARING' })
   sendToKitchen(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
     return this.service.sendToKitchen(this.me(user).tenantId, id);
   }

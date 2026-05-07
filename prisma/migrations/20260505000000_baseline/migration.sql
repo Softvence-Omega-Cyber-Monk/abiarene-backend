@@ -14,7 +14,7 @@ CREATE TYPE "RoleName" AS ENUM ('manager', 'server', 'kitchen', 'cashier', 'admi
 CREATE TYPE "TableStatus" AS ENUM ('AVAILABLE', 'OCCUPIED', 'SERVED');
 
 -- CreateEnum
-CREATE TYPE "OrderStatus" AS ENUM ('PENDING', 'IN_KITCHEN', 'READY', 'COMPLETED', 'CANCELLED');
+CREATE TYPE "OrderStatus" AS ENUM ('CONFIRMED', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED');
 
 -- CreateEnum
 CREATE TYPE "TicketStatus" AS ENUM ('ACTIVE', 'READY', 'ARCHIVED');
@@ -29,7 +29,10 @@ CREATE TYPE "PaymentMethod" AS ENUM ('CASH', 'CARD', 'MANUAL');
 CREATE TYPE "DiscountStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
 
 -- CreateEnum
-CREATE TYPE "SupportTicketStatus" AS ENUM ('OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED');
+CREATE TYPE "SupportTicketStatus" AS ENUM ('OPEN', 'CLOSED');
+
+-- CreateEnum
+CREATE TYPE "SupportMessageSenderRole" AS ENUM ('ADMIN', 'MANAGER');
 
 -- CreateTable
 CREATE TABLE "tenants" (
@@ -168,7 +171,7 @@ CREATE TABLE "orders" (
     "id" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
     "tableId" TEXT NOT NULL,
-    "status" "OrderStatus" NOT NULL DEFAULT 'PENDING',
+    "status" "OrderStatus" NOT NULL DEFAULT 'CONFIRMED',
     "createdBy" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -192,6 +195,7 @@ CREATE TABLE "order_items" (
 -- CreateTable
 CREATE TABLE "tickets" (
     "id" TEXT NOT NULL,
+    "ticketCode" TEXT NOT NULL,
     "orderId" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
     "status" "TicketStatus" NOT NULL DEFAULT 'ACTIVE',
@@ -251,6 +255,19 @@ CREATE TABLE "support_tickets" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "support_tickets_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "support_ticket_messages" (
+    "id" TEXT NOT NULL,
+    "ticketId" TEXT NOT NULL,
+    "senderRole" "SupportMessageSenderRole" NOT NULL,
+    "senderName" TEXT NOT NULL,
+    "senderEmail" TEXT NOT NULL,
+    "message" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "support_ticket_messages_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -314,6 +331,9 @@ CREATE INDEX "orders_createdBy_idx" ON "orders"("createdBy");
 CREATE INDEX "order_items_orderId_idx" ON "order_items"("orderId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "tickets_ticketCode_key" ON "tickets"("ticketCode");
+
+-- CreateIndex
 CREATE INDEX "tickets_tenantId_idx" ON "tickets"("tenantId");
 
 -- CreateIndex
@@ -336,6 +356,9 @@ CREATE INDEX "discount_requests_orderId_idx" ON "discount_requests"("orderId");
 
 -- CreateIndex
 CREATE INDEX "support_tickets_tenantId_idx" ON "support_tickets"("tenantId");
+
+-- CreateIndex
+CREATE INDEX "support_ticket_messages_ticketId_idx" ON "support_ticket_messages"("ticketId");
 
 -- AddForeignKey
 ALTER TABLE "menus" ADD CONSTRAINT "menus_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -411,3 +434,6 @@ ALTER TABLE "discount_requests" ADD CONSTRAINT "discount_requests_requestedBy_fk
 
 -- AddForeignKey
 ALTER TABLE "support_tickets" ADD CONSTRAINT "support_tickets_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "support_ticket_messages" ADD CONSTRAINT "support_ticket_messages_ticketId_fkey" FOREIGN KEY ("ticketId") REFERENCES "support_tickets"("id") ON DELETE CASCADE ON UPDATE CASCADE;

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { CreateDiscountDto, ListDiscountDto, UpdateDiscountDto } from './discount.dto.js';
+import { buildPaginatedResponse } from '../../common/utils/pagination.js';
 
 @Injectable()
 export class DiscountService {
@@ -18,13 +19,19 @@ export class DiscountService {
     });
   }
 
-  list(tenantId: string, dto: ListDiscountDto) {
-    return this.prisma.discountRequest.findMany({
-      where: { tenantId } as any,
-      skip: (dto.page - 1) * dto.limit,
-      take: dto.limit,
-      orderBy: { createdAt: 'desc' } as any,
-    });
+  async list(tenantId: string, dto: ListDiscountDto) {
+    const where = { tenantId } as any;
+    const [requests, total] = await Promise.all([
+      this.prisma.discountRequest.findMany({
+        where,
+        skip: (dto.page - 1) * dto.limit,
+        take: dto.limit,
+        orderBy: { createdAt: 'desc' } as any,
+      }),
+      this.prisma.discountRequest.count({ where }),
+    ]);
+
+    return buildPaginatedResponse(requests, dto.page, dto.limit, total);
   }
 
   read(tenantId: string, id: string) {

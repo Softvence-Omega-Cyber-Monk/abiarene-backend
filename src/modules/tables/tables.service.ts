@@ -7,6 +7,7 @@ import {
   SetTableItemsDto,
   UpdateTablesDto,
 } from './tables.dto.js';
+import { buildPaginatedResponse } from '../../common/utils/pagination.js';
 
 @Injectable()
 export class TablesService {
@@ -30,13 +31,19 @@ export class TablesService {
     }
   }
 
-  list(tenantId: string, dto: ListTablesDto) {
-    return this.prisma.table.findMany({
-      where: { tenantId } as any,
-      skip: (dto.page - 1) * dto.limit,
-      take: dto.limit,
-      orderBy: { createdAt: 'desc' } as any,
-    });
+  async list(tenantId: string, dto: ListTablesDto) {
+    const where = { tenantId } as any;
+    const [tables, total] = await Promise.all([
+      this.prisma.table.findMany({
+        where,
+        skip: (dto.page - 1) * dto.limit,
+        take: dto.limit,
+        orderBy: { createdAt: 'desc' } as any,
+      }),
+      this.prisma.table.count({ where }),
+    ]);
+
+    return buildPaginatedResponse(tables, dto.page, dto.limit, total);
   }
 
   read(tenantId: string, id: string) {
