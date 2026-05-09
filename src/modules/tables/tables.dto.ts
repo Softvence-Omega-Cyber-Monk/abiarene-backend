@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { TableStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { ArrayUnique, IsArray, IsEnum, IsInt, IsOptional, IsString } from 'class-validator';
+import { ArrayUnique, IsArray, IsBoolean, IsEnum, IsIn, IsInt, IsOptional, IsString } from 'class-validator';
 import { PaginationDto } from '../../common/dto/pagination.dto.js';
 
 export class CreateTablesDto {
@@ -19,12 +19,21 @@ export class CreateTablesDto {
   @ApiPropertyOptional({
     enum: TableStatus,
     enumName: 'TableStatus',
-    description: 'Table status. Available options: AVAILABLE, OCCUPIED, SERVED',
+    description: 'Table status. Available options: AVAILABLE, OCCUPIED',
     example: TableStatus.AVAILABLE,
   })
   @IsOptional()
   @IsEnum(TableStatus)
   status?: TableStatus;
+
+  @ApiPropertyOptional({
+    description: 'Whether the table has been served',
+    example: false,
+  })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  served?: boolean;
 }
 
 export class UpdateTablesDto extends PartialType(CreateTablesDto) {}
@@ -41,4 +50,14 @@ export class SetTableItemsDto {
   @ArrayUnique()
   @IsString({ each: true })
   itemIds!: string[];
+}
+
+export class CashierCheckoutDto {
+  @ApiProperty({
+    enum: ['CASH', 'CARD'],
+    description: 'How the table bill was paid',
+    example: 'CASH',
+  })
+  @IsIn(['CASH', 'CARD'])
+  method!: 'CASH' | 'CARD';
 }

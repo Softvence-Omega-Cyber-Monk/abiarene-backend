@@ -1,7 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { PaymentMethod, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import {
+  CashierCheckoutDto,
   CreateTablesDto,
   ListTablesDto,
   SetTableItemsDto,
@@ -59,6 +60,209 @@ export class TablesService {
 
   delete(tenantId: string, id: string) {
     return this.prisma.table.deleteMany({ where: { tenantId, id } as any });
+  }
+
+  async getCashierSummary(tenantId: string, id: string) {
+    const table: any = await this.prisma.table.findFirst({
+      where: { tenantId, id } as any,
+      select: {
+        id: true,
+        tenantId: true,
+        tableNumber: true,
+        seatCount: true,
+        status: true,
+        served: true,
+        orders: {
+          where: {
+            status: { notIn: ['COMPLETED', 'CANCELLED'] },
+          },
+          select: {
+            id: true,
+            status: true,
+            createdAt: true,
+            items: {
+              select: {
+                quantity: true,
+                menuItem: {
+                  select: {
+                    id: true,
+                    name: true,
+                    price: true,
+                    image: true,
+                    category: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+
+    if (!table) {
+      throw new BadRequestException('Table not found for this tenant');
+    }
+
+    const itemMap = new Map<
+      string,
+      {
+        itemId: string;
+        name: string;
+        category: string;
+        image: string | null;
+        quantity: number;
+        unitPrice: number;
+        lineTotal: number;
+      }
+    >();
+
+    let totalAmount = 0;
+    let totalQuantity = 0;
+
+    for (const order of table.orders) {
+      for (const item of order.items) {
+        const lineTotal = item.quantity * item.menuItem.price;
+        totalAmount += lineTotal;
+        totalQuantity += item.quantity;
+
+        const existing = itemMap.get(item.menuItem.id);
+        if (existing) {
+          existing.quantity += item.quantity;
+          existing.lineTotal += lineTotal;
+          continue;
+        }
+
+        itemMap.set(item.menuItem.id, {
+          itemId: item.menuItem.id,
+          name: item.menuItem.name,
+          category: item.menuItem.category,
+          image: item.menuItem.image,
+          quantity: item.quantity,
+          unitPrice: item.menuItem.price,
+          lineTotal,
+        });
+      }
+    }
+
+    const items = [...itemMap.values()];
+
+    return {
+      table: {
+        id: table.id,
+        tenantId: table.tenantId,
+        tableNumber: table.tableNumber,
+        seatCount: table.seatCount,
+        status: table.status,
+        served: table.served,
+      },
+      orders: table.orders.map((order) => ({
+        id: order.id,
+        status: order.status,
+        createdAt: order.createdAt,
+        itemCount: order.items.length,
+        totalQuantity: order.items.reduce((sum, item) => sum + item.quantity, 0),
+        totalAmount: order.items.reduce(
+          (sum, item) => sum + item.quantity * item.menuItem.price,
+          0,
+        ),
+      })),
+      items,
+      meta: {
+        orderCount: table.orders.length,
+        itemCount: items.length,
+        totalQuantity,
+        totalAmount,
+      },
+    };
+  }
+
+  async completeCashierCheckout(
+    tenantId: string,
+    id: string,
+    dto: CashierCheckoutDto,
+  ) {
+    if (![PaymentMethod.CASH, PaymentMethod.CARD].includes(dto.method)) {
+      throw new BadRequestException('Only CASH or CARD is allowed for cashier checkout');
+    }
+
+    const table: any = await this.prisma.table.findFirst({
+      where: { tenantId, id } as any,
+      select: {
+        id: true,
+        tableNumber: true,
+        orders: {
+          where: {
+            status: { notIn: ['COMPLETED', 'CANCELLED'] },
+          },
+          select: {
+            id: true,
+            items: {
+              select: {
+                quantity: true,
+                menuItem: {
+                  select: {
+                    price: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!table) {
+      throw new BadRequestException('Table not found for this tenant');
+    }
+
+    if (table.orders.length === 0) {
+      throw new BadRequestException('No active orders found for this table');
+    }
+
+    const payments = table.orders.map((order) => ({
+      orderId: order.id,
+      tenantId,
+      amount: order.items.reduce(
+        (sum, item) => sum + item.quantity * item.menuItem.price,
+        0,
+      ),
+      method: dto.method,
+      status: 'COMPLETED' as const,
+    }));
+
+    await this.prisma.payment.createMany({
+      data: payments as any,
+    });
+
+    await this.prisma.order.updateMany({
+      where: {
+        tenantId,
+        id: {
+          in: table.orders.map((order) => order.id),
+        },
+      },
+      data: {
+        status: 'COMPLETED',
+      },
+    });
+
+    await this.prisma.table.updateMany({
+      where: { tenantId, id: table.id },
+      data: {
+        status: 'OCCUPIED',
+        served: true,
+      },
+    });
+
+    return {
+      table: await this.read(tenantId, table.id),
+      paymentMethod: dto.method,
+      meta: {
+        orderCount: table.orders.length,
+        totalAmount: payments.reduce((sum, payment) => sum + payment.amount, 0),
+      },
+    };
   }
 
   listItems(tenantId: string, id: string) {

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import {
   CreateInventoryDto,
@@ -34,13 +34,19 @@ export class InventoryService {
     return this.prisma.product.findFirst({ where: { tenantId, id } as any });
   }
 
-  readByInventory(tenantId: string, inventory: string) {
-    return this.prisma.product.findFirst({
+  async readByInventory(tenantId: string, inventory: string) {
+    const product = await this.prisma.product.findFirst({
       where: {
         tenantId,
         OR: [{ name: inventory }, { sku: inventory }, { barcode: inventory }],
       } as any,
     });
+
+    if (!product) {
+      throw new NotFoundException('Product not found in inventory');
+    }
+
+    return product;
   }
 
   async update(tenantId: string, id: string, dto: UpdateInventoryDto) {

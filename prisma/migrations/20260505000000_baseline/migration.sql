@@ -11,7 +11,7 @@ CREATE TYPE "UserStatus" AS ENUM ('ACTIVE', 'INACTIVE');
 CREATE TYPE "RoleName" AS ENUM ('manager', 'server', 'kitchen', 'cashier', 'admin');
 
 -- CreateEnum
-CREATE TYPE "TableStatus" AS ENUM ('AVAILABLE', 'OCCUPIED', 'SERVED');
+CREATE TYPE "TableStatus" AS ENUM ('AVAILABLE', 'OCCUPIED');
 
 -- CreateEnum
 CREATE TYPE "OrderStatus" AS ENUM ('CONFIRMED', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED');
@@ -150,6 +150,7 @@ CREATE TABLE "tables" (
     "tableNumber" INTEGER NOT NULL,
     "seatCount" INTEGER NOT NULL DEFAULT 4,
     "status" "TableStatus" NOT NULL DEFAULT 'AVAILABLE',
+    "served" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 

@@ -166,7 +166,7 @@ export class TicketsService {
 
     await this.prisma.table.updateMany({
       where: { tenantId, id: ticket.order.tableId },
-      data: { status: 'AVAILABLE' },
+      data: { status: 'AVAILABLE', served: false },
     });
 
     return this.read(tenantId, id);

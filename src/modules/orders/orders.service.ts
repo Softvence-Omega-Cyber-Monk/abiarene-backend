@@ -186,7 +186,7 @@ export class OrdersService {
 
     await this.prisma.table.updateMany({
       where: { id: dto.tableId, tenantId },
-      data: { status: 'OCCUPIED' },
+      data: { status: 'OCCUPIED', served: false },
     });
 
     return this.read(tenantId, order.id);
@@ -283,7 +283,10 @@ export class OrdersService {
 
       await this.prisma.table.updateMany({
         where: { id: order.tableId, tenantId },
-        data: { status: nextTableStatus },
+        data: {
+          status: nextTableStatus,
+          ...(nextTableStatus === 'AVAILABLE' ? { served: false } : {}),
+        },
       });
     }
 
@@ -313,7 +316,7 @@ export class OrdersService {
 
     await this.prisma.table.updateMany({
       where: { tenantId, id: order.tableId },
-      data: { status: 'AVAILABLE' },
+      data: { status: 'AVAILABLE', served: false },
     });
 
     return this.read(tenantId, id);

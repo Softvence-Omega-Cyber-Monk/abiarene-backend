@@ -21,6 +21,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { AuthUser } from '../../common/interfaces/auth-user.interface.js';
 import {
+  CashierCheckoutDto,
   CreateTablesDto,
   ListTablesDto,
   SetTableItemsDto,
@@ -71,11 +72,12 @@ export class TablesController {
         },
       },
       served: {
-        summary: 'Served table',
+        summary: 'Served table flag',
         value: {
           tableNumber: 14,
           seatCount: 6,
-          status: 'SERVED',
+          status: 'OCCUPIED',
+          served: true,
         },
       },
     },
@@ -223,6 +225,29 @@ export class TablesController {
     return this.service.removeMenuItem(this.tenantId(user), itemId);
   }
 
+  @Get(':id/cashier-summary')
+  @Roles('cashier', 'manager')
+  @ApiOperation({ summary: 'Get cashier checkout summary for a table under your current tenant' })
+  @ApiResponse({ status: 200, description: 'Cashier checkout summary retrieved for the selected table' })
+  getCashierSummary(
+    @CurrentUser() user: AuthUser | undefined,
+    @Param('id') id: string,
+  ) {
+    return this.service.getCashierSummary(this.tenantId(user), id);
+  }
+
+  @Post(':id/cashier-checkout')
+  @Roles('cashier', 'manager')
+  @ApiOperation({ summary: 'Complete cashier checkout for a table under your current tenant' })
+  @ApiResponse({ status: 200, description: 'Cashier checkout completed and the table was marked as served' })
+  cashierCheckout(
+    @CurrentUser() user: AuthUser | undefined,
+    @Param('id') id: string,
+    @Body() dto: CashierCheckoutDto,
+  ) {
+    return this.service.completeCashierCheckout(this.tenantId(user), id, dto);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get table by ID' })
   @ApiResponse({ status: 200, description: 'Table retrieved' })
@@ -262,7 +287,13 @@ export class TablesController {
       served: {
         summary: 'Mark served',
         value: {
-          status: 'SERVED',
+          served: true,
+        },
+      },
+      unserved: {
+        summary: 'Mark not served',
+        value: {
+          served: false,
         },
       },
     },
