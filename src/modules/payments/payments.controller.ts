@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { AuthUser } from '../../common/interfaces/auth-user.interface.js';
 import { CreatePaymentsDto, ListPaymentsDto, UpdatePaymentsDto } from './payments.dto.js';
@@ -25,8 +25,17 @@ export class PaymentsController {
   @Get()
   @ApiOperation({ summary: 'List payments' })
   @ApiResponse({ status: 200, description: 'Payments retrieved' })
-  list(@CurrentUser() user: AuthUser | undefined, @Query() dto: ListPaymentsDto) {
-    return this.service.list(this.tenantId(user), dto);
+  @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
+  @ApiQuery({ name: 'limit', required: false, type: String, example: '20' })
+  list(
+    @CurrentUser() user: AuthUser | undefined,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '20',
+  ) {
+    return this.service.list(this.tenantId(user), {
+      page: parseInt(page, 10),
+      limit: parseInt(limit, 10),
+    } as ListPaymentsDto);
   }
 
   @Get(':id')
