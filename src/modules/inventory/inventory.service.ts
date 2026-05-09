@@ -34,6 +34,15 @@ export class InventoryService {
     return this.prisma.product.findFirst({ where: { tenantId, id } as any });
   }
 
+  readByInventory(tenantId: string, inventory: string) {
+    return this.prisma.product.findFirst({
+      where: {
+        tenantId,
+        OR: [{ name: inventory }, { sku: inventory }, { barcode: inventory }],
+      } as any,
+    });
+  }
+
   async update(tenantId: string, id: string, dto: UpdateInventoryDto) {
     await this.prisma.product.updateMany({
       where: { tenantId, id } as any,

@@ -12,6 +12,7 @@ import {
 import {
   ApiBearerAuth,
   ApiOperation,
+  ApiParam,
   ApiQuery,
   ApiResponse,
   ApiTags,
@@ -63,6 +64,21 @@ export class InventoryController {
       page: parseInt(page),
       limit: parseInt(limit),
     } as ListInventoryDto);
+  }
+
+  @Get('by-inventory/:inventory')
+  @ApiOperation({ summary: 'Get inventory item by inventory value' })
+  @ApiParam({
+    name: 'inventory',
+    description: 'Inventory lookup value. Matches product name, SKU, or barcode',
+    example: 'PRD-1001',
+  })
+  @ApiResponse({ status: 200, description: 'Inventory item retrieved by inventory value' })
+  readByInventory(
+    @CurrentUser() user: AuthUser | undefined,
+    @Param('inventory') inventory: string,
+  ) {
+    return this.service.readByInventory(this.tenantId(user), inventory);
   }
 
   @Get(':id')
