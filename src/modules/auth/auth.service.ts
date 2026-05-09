@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { RoleName } from '../../common/constants/role-name.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { LoginDto } from './auth.dto.js';
 
@@ -41,7 +42,7 @@ export class AuthService {
       const payload = {
         sub: admin.id,
         email: admin.email,
-        role: 'admin',
+        role: RoleName.ADMIN,
       };
 
       return {

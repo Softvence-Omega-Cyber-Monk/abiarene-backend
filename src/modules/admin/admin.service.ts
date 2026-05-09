@@ -3,6 +3,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { RoleName } from '../../common/constants/role-name.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { AdminSignupDto } from './admin.dto.js';
 
@@ -44,7 +45,7 @@ export class AdminService {
       },
     });
 
-    const payload = { sub: admin.id, email: admin.email, role: 'admin' };
+    const payload = { sub: admin.id, email: admin.email, role: RoleName.ADMIN };
 
     return {
       accessToken: await this.jwtService.signAsync(payload),

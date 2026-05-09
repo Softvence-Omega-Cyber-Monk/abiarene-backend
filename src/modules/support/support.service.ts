@@ -1,4 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { RoleName } from '../../common/constants/role-name.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { buildPaginatedResponse } from '../../common/utils/pagination.js';
 import { AuthUser } from '../../common/interfaces/auth-user.interface.js';
@@ -71,7 +72,7 @@ export class SupportService {
   }
 
   private messageSender(user: AuthUser) {
-    if (user.role === 'admin') {
+    if (user.role?.toUpperCase() === RoleName.ADMIN) {
       return {
         senderRole: 'ADMIN' as const,
         senderName: user.name ?? 'Admin',
@@ -110,7 +111,7 @@ export class SupportService {
 
   async list(user: AuthUser, dto: ListSupportDto) {
     const where =
-      user.role === 'admin'
+      user.role?.toUpperCase() === RoleName.ADMIN
         ? { status: dto.status }
         : { ...this.managerWhere(user), status: dto.status };
 
@@ -135,7 +136,7 @@ export class SupportService {
 
   async read(user: AuthUser, id: string) {
     const where =
-      user.role === 'admin'
+      user.role?.toUpperCase() === RoleName.ADMIN
         ? { id }
         : { id, ...this.managerWhere(user) };
 
@@ -153,7 +154,7 @@ export class SupportService {
 
   async addMessage(user: AuthUser, id: string, dto: CreateSupportMessageDto) {
     const where =
-      user.role === 'admin'
+      user.role?.toUpperCase() === RoleName.ADMIN
         ? { id }
         : { id, ...this.managerWhere(user) };
 
@@ -186,7 +187,7 @@ export class SupportService {
     id: string,
     dto: UpdateSupportStatusDto,
   ) {
-    if (user.role !== 'admin') {
+    if (user.role?.toUpperCase() !== RoleName.ADMIN) {
       throw new ForbiddenException('This route is for admin only');
     }
 

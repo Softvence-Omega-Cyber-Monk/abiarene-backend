@@ -16,6 +16,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { RoleName } from '../../common/constants/role-name.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { AuthUser } from '../../common/interfaces/auth-user.interface.js';
@@ -60,7 +61,7 @@ export class TenantController {
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '20',
   ) {
-    if (user?.role !== 'admin') {
+    if (user?.role?.toUpperCase() !== RoleName.ADMIN) {
       throw new ForbiddenException('This route is for admin only');
     }
 
@@ -103,7 +104,7 @@ export class TenantController {
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '20',
   ) {
-    if (user?.role !== 'admin' && this.tenantId(user) !== tenantId) {
+    if (user?.role?.toUpperCase() !== RoleName.ADMIN && this.tenantId(user) !== tenantId) {
       throw new ForbiddenException('You can only access roles for your own tenant');
     }
 
@@ -122,7 +123,7 @@ export class TenantController {
     @Param('tenantId') tenantId: string,
     @Body() dto: UpdateTenantRolesDto,
   ) {
-    if (user?.role !== 'admin') {
+    if (user?.role?.toUpperCase() !== RoleName.ADMIN) {
       throw new ForbiddenException('This route is for admin only');
     }
 
@@ -138,7 +139,7 @@ export class TenantController {
     @Param('tenantId') tenantId: string,
     @Body() dto: UpdateTenantStatusDto,
   ) {
-    if (user?.role !== 'admin') {
+    if (user?.role?.toUpperCase() !== RoleName.ADMIN) {
       throw new ForbiddenException('This route is for admin only');
     }
 

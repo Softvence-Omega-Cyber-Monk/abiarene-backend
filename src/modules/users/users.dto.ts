@@ -42,7 +42,7 @@ export class CreateUsersDto {
     example: StaffRoleName.SERVER,
   })
   @Transform(({ value }) =>
-    typeof value === 'string' ? value.toLowerCase() : value,
+    typeof value === 'string' ? value.toUpperCase() : value,
   )
   @IsEnum(StaffRoleName)
   role!: StaffRoleName;

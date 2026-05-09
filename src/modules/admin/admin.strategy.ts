@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { RoleName } from '../../common/constants/role-name.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 
 @Injectable()
@@ -18,7 +19,7 @@ export class AdminStrategy extends PassportStrategy(Strategy, 'admin-jwt') {
   }
 
   async validate(payload: { sub: string; email: string; role: string }) {
-    if (payload.role !== 'admin') {
+    if (payload.role?.toUpperCase() !== RoleName.ADMIN) {
       throw new UnauthorizedException('Not an admin token');
     }
 
@@ -33,7 +34,7 @@ export class AdminStrategy extends PassportStrategy(Strategy, 'admin-jwt') {
     return {
       sub: admin.id,
       email: admin.email,
-      role: 'admin',
+      role: RoleName.ADMIN,
     };
   }
 }

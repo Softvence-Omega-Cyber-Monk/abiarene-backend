@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { RoleName } from '../constants/role-name.js';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js';
 import { TenantContextService } from '../context/tenant-context.service.js';
 import { AuthUser } from '../interfaces/auth-user.interface.js';
@@ -35,7 +36,7 @@ export class TenantGuard implements CanActivate {
     }
     
     // Skip tenantId validation for admin tokens
-    if (user.role === 'admin') {
+    if (user.role?.toUpperCase() === RoleName.ADMIN) {
       return true;
     }
 

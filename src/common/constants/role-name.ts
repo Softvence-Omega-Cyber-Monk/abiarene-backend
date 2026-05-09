@@ -1,9 +1,9 @@
 export enum RoleName {
-  MANAGER = 'manager',
-  SERVER = 'server',
-  KITCHEN = 'kitchen',
-  CASHIER = 'cashier',
-  ADMIN = 'admin',
+  MANAGER = 'MANAGER',
+  SERVER = 'SERVER',
+  KITCHEN = 'KITCHEN',
+  CASHIER = 'CASHIER',
+  ADMIN = 'ADMIN',
 }
 
 export enum TenantRoleName {

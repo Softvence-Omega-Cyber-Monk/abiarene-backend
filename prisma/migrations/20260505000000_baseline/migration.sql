@@ -8,7 +8,7 @@ CREATE TYPE "TenantStatus" AS ENUM ('ACTIVE', 'INACTIVE', 'SUSPENDED');
 CREATE TYPE "UserStatus" AS ENUM ('ACTIVE', 'INACTIVE');
 
 -- CreateEnum
-CREATE TYPE "RoleName" AS ENUM ('manager', 'server', 'kitchen', 'cashier', 'admin');
+CREATE TYPE "RoleName" AS ENUM ('MANAGER', 'SERVER', 'KITCHEN', 'CASHIER', 'ADMIN');
 
 -- CreateEnum
 CREATE TYPE "TableStatus" AS ENUM ('AVAILABLE', 'OCCUPIED');

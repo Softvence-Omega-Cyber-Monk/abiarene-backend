@@ -21,11 +21,11 @@ enum UserStatus {
 }
 
 enum RoleName {
-  manager
-  server
-  kitchen
-  cashier
-  admin
+  MANAGER
+  SERVER
+  KITCHEN
+  CASHIER
+  ADMIN
 }
 
 enum TableStatus {

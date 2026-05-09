@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { RoleName } from '../../common/constants/role-name.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 
 @Injectable()
@@ -25,7 +26,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     email?: string;
   }) {
     // Handle admin tokens
-    if (payload.role === 'admin') {
+    if (payload.role?.toUpperCase() === RoleName.ADMIN) {
       const admin = await this.prisma.admin.findFirst({
         where: { id: payload.sub, status: 'ACTIVE' },
       });
@@ -37,7 +38,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       return {
         sub: admin.id,
         email: admin.email,
-        role: 'admin',
+        role: RoleName.ADMIN,
       };
     }
 

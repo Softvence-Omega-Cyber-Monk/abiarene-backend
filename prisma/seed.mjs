@@ -29,7 +29,7 @@ async function main() {
   });
 
   const roles = await Promise.all(
-    ['manager', 'server', 'kitchen', 'cashier'].map((name) =>
+    ['MANAGER', 'SERVER', 'KITCHEN', 'CASHIER'].map((name) =>
       prisma.role.upsert({
         where: { name_tenantId: { name, tenantId: tenant.id } },
         update: { isActive: true },
@@ -38,8 +38,8 @@ async function main() {
     ),
   );
 
-  const managerRole = roles.find((role) => role.name === 'manager');
-  const serverRole = roles.find((role) => role.name === 'server');
+  const managerRole = roles.find((role) => role.name === 'MANAGER');
+  const serverRole = roles.find((role) => role.name === 'SERVER');
 
   await prisma.user.upsert({
     where: { id: 'user-manager-1' },
