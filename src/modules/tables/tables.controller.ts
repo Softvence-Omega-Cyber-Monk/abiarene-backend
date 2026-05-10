@@ -266,7 +266,7 @@ export class TablesController {
   }
 
   @Patch(':id')
-  @Roles('manager')
+  @Roles('server', 'manager')
   @ApiOperation({ summary: 'Update table by ID' })
   @ApiResponse({ status: 200, description: 'Table updated' })
   @ApiBody({

@@ -1,5 +1,5 @@
 import { Controller, Get, Param, Post, Query, UnauthorizedException } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { AuthUser } from '../../common/interfaces/auth-user.interface.js';
@@ -20,8 +20,20 @@ export class TicketsController {
   @Roles('manager', 'server', 'kitchen')
   @ApiOperation({ summary: 'List tickets under your current tenant' })
   @ApiResponse({ status: 200, description: 'Tickets retrieved' })
-  list(@CurrentUser() user: AuthUser | undefined, @Query() dto: ListTicketsDto) {
-    return this.service.list(this.tenantId(user), dto);
+  @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
+  @ApiQuery({ name: 'limit', required: false, type: String, example: '20' })
+  @ApiQuery({ name: 'status', required: false, enum: ['PREPARING', 'READY', 'COMPLETED'] })
+  list(
+    @CurrentUser() user: AuthUser | undefined,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '20',
+    @Query('status') status?: 'PREPARING' | 'READY' | 'COMPLETED',
+  ) {
+    return this.service.list(this.tenantId(user), {
+      page: parseInt(page, 10),
+      limit: parseInt(limit, 10),
+      status,
+    } as ListTicketsDto);
   }
 
   @Get('kitchen-board')

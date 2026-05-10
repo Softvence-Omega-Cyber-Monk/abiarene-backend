@@ -20,13 +20,7 @@ enum UserStatus {
   INACTIVE
 }
 
-enum RoleName {
-  MANAGER
-  SERVER
-  KITCHEN
-  CASHIER
-  ADMIN
-}
+
 
 enum TableStatus {
   AVAILABLE

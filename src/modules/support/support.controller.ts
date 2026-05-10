@@ -11,6 +11,7 @@ import {
 import {
   ApiBearerAuth,
   ApiOperation,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -54,11 +55,20 @@ export class SupportController {
   @Roles('manager', 'admin')
   @ApiOperation({ summary: 'List support issues for your role scope' })
   @ApiResponse({ status: 200, description: 'Support issues retrieved' })
+  @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
+  @ApiQuery({ name: 'limit', required: false, type: String, example: '20' })
+  @ApiQuery({ name: 'status', required: false, enum: ['OPEN', 'CLOSED'] })
   list(
     @CurrentUser() user: AuthUser | undefined,
-    @Query() dto: ListSupportDto,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '20',
+    @Query('status') status?: 'OPEN' | 'CLOSED',
   ) {
-    return this.service.list(this.currentUser(user), dto);
+    return this.service.list(this.currentUser(user), {
+      page: parseInt(page, 10),
+      limit: parseInt(limit, 10),
+      status,
+    } as ListSupportDto);
   }
 
   @Get(':id')

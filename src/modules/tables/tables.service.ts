@@ -54,7 +54,14 @@ export class TablesService {
   }
 
   async update(tenantId: string, id: string, dto: UpdateTablesDto) {
-    await this.prisma.table.updateMany({ where: { tenantId, id } as any, data: dto as any });
+    const data = {
+      ...dto,
+      ...(dto.status === 'AVAILABLE' && dto.served === undefined
+        ? { served: false }
+        : {}),
+    };
+
+    await this.prisma.table.updateMany({ where: { tenantId, id } as any, data: data as any });
     return this.read(tenantId, id);
   }
 

@@ -44,6 +44,23 @@ export class OrdersController {
     } as ListOrdersDto);
   }
 
+  @Get('history')
+  @Roles('manager', 'cashier')
+  @ApiOperation({ summary: 'List paid completed order history under your current tenant' })
+  @ApiResponse({ status: 200, description: 'Paid completed order history retrieved' })
+  @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
+  @ApiQuery({ name: 'limit', required: false, type: String, example: '20' })
+  history(
+    @CurrentUser() user: AuthUser | undefined,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '20',
+  ) {
+    return this.service.listHistory(this.me(user).tenantId, {
+      page: parseInt(page, 10),
+      limit: parseInt(limit, 10),
+    } as ListOrdersDto);
+  }
+
   @Get(':id')
   @Roles('manager', 'server')
   @ApiOperation({ summary: 'Get order by ID under your current tenant' })
