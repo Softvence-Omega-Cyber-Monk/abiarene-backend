@@ -4,10 +4,14 @@
   "description": "",
   "author": "",
   "private": true,
+  "engines": {
+    "node": "22.x",
+    "pnpm": "9.x"
+  },
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
-    "build:render": "npm install && npm run prisma:generate && npm run build",
+    "build:render": "corepack enable && pnpm install --frozen-lockfile && pnpm run prisma:generate && pnpm run build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
