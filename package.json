@@ -11,7 +11,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
-    "build:render": "corepack enable && corepack prepare pnpm@9.15.9 --activate && pnpm install --frozen-lockfile && pnpm run prisma:generate && pnpm run build",
+    "build:render": "corepack enable && corepack prepare pnpm@9.15.9 --activate && pnpm install --no-frozen-lockfile && pnpm run prisma:generate && pnpm run build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
