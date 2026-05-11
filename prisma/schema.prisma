@@ -20,6 +20,27 @@ enum UserStatus {
   INACTIVE
 }
 
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+}
+
+enum SubscriptionPaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum SubscriptionPaymentProvider {
+  STRIPE
+  ORANGE
+  MTN_MOMO
+  PAYSTACK
+  GODADDY_PAYMENTS
+}
+
 enum RoleName {
   MANAGER
   SERVER
@@ -60,12 +81,6 @@ enum PaymentMethod {
   MANUAL
 }
 
-enum DiscountStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
 enum SupportTicketStatus {
   OPEN
   CLOSED
@@ -84,6 +99,9 @@ model Tenant {
   industry        String       @default("restaurant")
   subscriptionFee Float        @default(0)
   status          TenantStatus @default(ACTIVE)
+  subscriptionStatus SubscriptionStatus @default(PENDING)
+  subscriptionStartAt DateTime?
+  subscriptionEndAt DateTime?
   lastSync        DateTime?
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
@@ -97,7 +115,8 @@ model Tenant {
   orders          Order[]
   tickets         Ticket[]
   payments        Payment[]
-  discountRequests DiscountRequest[]
+  subscriptionPayments SubscriptionPayment[]
+  discounts       Discount[]
   supportTickets  SupportTicket[]
 
   @@map("tenants")
@@ -150,7 +169,7 @@ model User {
   role      Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
   tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   orders    Order[]    @relation("CreatedByUser")
-  discountRequests DiscountRequest[]
+  subscriptionPayments SubscriptionPayment[]
 
   @@unique([email])
   @@index([tenantId])
@@ -284,7 +303,6 @@ model Order {
   items      OrderItem[]
   tickets    Ticket[]
   payments   Payment[]
-  discountRequests DiscountRequest[]
 
   @@index([tenantId])
   @@index([tableId])
@@ -365,26 +383,44 @@ model Payment {
   @@map("payments")
 }
 
-// ─── Discount Request ───────────────────────────────────────────
+model SubscriptionPayment {
+  id               String                      @id @default(uuid())
+  tenantId         String
+  userId           String
+  provider         SubscriptionPaymentProvider
+  amount           Float
+  currency         String                      @default("USD")
+  status           SubscriptionPaymentStatus   @default(PENDING)
+  reference        String                      @unique
+  externalReference String?
+  completedAt      DateTime?
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
 
-model DiscountRequest {
-  id          String         @id @default(uuid())
-  orderId     String
-  tenantId    String
-  requestedBy String
-  amount      Float
-  reason      String?
-  status      DiscountStatus @default(PENDING)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-
-  order       Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user        User           @relation(fields: [requestedBy], references: [id], onDelete: Cascade)
+  tenant           Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user             User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
-  @@index([orderId])
-  @@map("discount_requests")
+  @@index([userId])
+  @@map("subscription_payments")
+}
+
+// ─── Discount ───────────────────────────────────────────────────
+
+model Discount {
+  id           String   @id @default(uuid())
+  tenantId      String
+  name         String
+  minimumPrice Float
+  offPrice     Float
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("discounts")
 }
 
 // ─── Support Ticket ─────────────────────────────────────────────

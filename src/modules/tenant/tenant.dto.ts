@@ -144,3 +144,13 @@ export class UpdateTenantStatusDto {
   @IsIn(['ACTIVE', 'INACTIVE'])
   status!: 'ACTIVE' | 'INACTIVE';
 }
+
+export class InitiateSubscriptionPaymentDto {
+  @ApiProperty({
+    description: 'Selected online payment provider for tenant subscription payment',
+    enum: ['stripe', 'orange', 'mtnMomo', 'paystack', 'godaddyPayments'],
+    example: 'stripe',
+  })
+  @IsIn(['stripe', 'orange', 'mtnMomo', 'paystack', 'godaddyPayments'])
+  provider!: 'stripe' | 'orange' | 'mtnMomo' | 'paystack' | 'godaddyPayments';
+}

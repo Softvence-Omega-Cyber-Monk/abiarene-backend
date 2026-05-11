@@ -24,6 +24,9 @@ async function main() {
       industry: 'restaurant',
       subscriptionFee: 129.0,
       status: 'ACTIVE',
+      subscriptionStatus: 'ACTIVE',
+      subscriptionStartAt: new Date(),
+      subscriptionEndAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       lastSync: new Date(),
     },
   });

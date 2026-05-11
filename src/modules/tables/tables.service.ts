@@ -14,9 +14,15 @@ import { buildPaginatedResponse } from '../../common/utils/pagination.js';
 export class TablesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private toMoney(value: number) {
+    return Math.round(value * 100) / 100;
+  }
+
   async create(tenantId: string, dto: CreateTablesDto) {
     try {
-      const table = await this.prisma.table.create({ data: { ...dto, tenantId } as any });
+      const table = await this.prisma.table.create({
+        data: { ...dto, tenantId } as any,
+      });
       return this.read(tenantId, table.id);
     } catch (error) {
       if (
@@ -61,7 +67,10 @@ export class TablesService {
         : {}),
     };
 
-    await this.prisma.table.updateMany({ where: { tenantId, id } as any, data: data as any });
+    await this.prisma.table.updateMany({
+      where: { tenantId, id } as any,
+      data: data as any,
+    });
     return this.read(tenantId, id);
   }
 
@@ -153,6 +162,10 @@ export class TablesService {
     }
 
     const items = [...itemMap.values()];
+    const discounts = await this.prisma.discount.findMany({
+      where: { tenantId, isActive: true },
+      orderBy: { createdAt: 'desc' },
+    });
 
     return {
       table: {
@@ -168,18 +181,29 @@ export class TablesService {
         status: order.status,
         createdAt: order.createdAt,
         itemCount: order.items.length,
-        totalQuantity: order.items.reduce((sum, item) => sum + item.quantity, 0),
+        totalQuantity: order.items.reduce(
+          (sum, item) => sum + item.quantity,
+          0,
+        ),
         totalAmount: order.items.reduce(
           (sum, item) => sum + item.quantity * item.menuItem.price,
           0,
         ),
       })),
       items,
+      discounts: discounts.map((discount) => ({
+        id: discount.id,
+        name: discount.name,
+        minimumPrice: discount.minimumPrice,
+        offPrice: discount.offPrice,
+        isActive: discount.isActive,
+        eligible: totalAmount >= discount.minimumPrice,
+      })),
       meta: {
         orderCount: table.orders.length,
         itemCount: items.length,
         totalQuantity,
-        totalAmount,
+        totalAmount: this.toMoney(totalAmount),
       },
     };
   }
@@ -190,7 +214,9 @@ export class TablesService {
     dto: CashierCheckoutDto,
   ) {
     if (![PaymentMethod.CASH, PaymentMethod.CARD].includes(dto.method)) {
-      throw new BadRequestException('Only CASH or CARD is allowed for cashier checkout');
+      throw new BadRequestException(
+        'Only CASH or CARD is allowed for cashier checkout',
+      );
     }
 
     const table: any = await this.prisma.table.findFirst({
@@ -227,16 +253,84 @@ export class TablesService {
       throw new BadRequestException('No active orders found for this table');
     }
 
-    const payments = table.orders.map((order) => ({
+    const orderSubtotals = table.orders.map((order) => ({
       orderId: order.id,
-      tenantId,
-      amount: order.items.reduce(
-        (sum, item) => sum + item.quantity * item.menuItem.price,
-        0,
+      subtotal: this.toMoney(
+        order.items.reduce(
+          (sum, item) => sum + item.quantity * item.menuItem.price,
+          0,
+        ),
       ),
-      method: dto.method,
-      status: 'COMPLETED' as const,
     }));
+
+    const subtotalAmount = this.toMoney(
+      orderSubtotals.reduce((sum, order) => sum + order.subtotal, 0),
+    );
+
+    let appliedDiscount: null | {
+      id: string;
+      name: string;
+      offPrice: number;
+      minimumPrice: number;
+      discountAmount: number;
+    } = null;
+
+    if (dto.discountId) {
+      const discount = await this.prisma.discount.findFirst({
+        where: {
+          id: dto.discountId,
+          tenantId,
+          isActive: true,
+        },
+      });
+
+      if (!discount) {
+        throw new BadRequestException(
+          'Discount not found or inactive for this tenant',
+        );
+      }
+
+      if (subtotalAmount < discount.minimumPrice) {
+        throw new BadRequestException(
+          'Order total does not meet the minimum price for this discount',
+        );
+      }
+
+      appliedDiscount = {
+        id: discount.id,
+        name: discount.name,
+        offPrice: discount.offPrice,
+        minimumPrice: discount.minimumPrice,
+        discountAmount: this.toMoney(
+          subtotalAmount * (discount.offPrice / 100),
+        ),
+      };
+    }
+
+    const subtotalCents = Math.round(subtotalAmount * 100);
+    const discountCents = Math.round(
+      (appliedDiscount?.discountAmount ?? 0) * 100,
+    );
+    const netCents = subtotalCents - discountCents;
+    let allocatedCents = 0;
+
+    const payments = orderSubtotals.map((order, index) => {
+      const orderSubtotalCents = Math.round(order.subtotal * 100);
+      const amountCents =
+        index === orderSubtotals.length - 1
+          ? netCents - allocatedCents
+          : Math.round((orderSubtotalCents / subtotalCents) * netCents);
+
+      allocatedCents += amountCents;
+
+      return {
+        orderId: order.orderId,
+        tenantId,
+        amount: this.toMoney(amountCents / 100),
+        method: dto.method,
+        status: 'COMPLETED' as const,
+      };
+    });
 
     await this.prisma.payment.createMany({
       data: payments as any,
@@ -265,9 +359,14 @@ export class TablesService {
     return {
       table: await this.read(tenantId, table.id),
       paymentMethod: dto.method,
+      discount: appliedDiscount,
       meta: {
         orderCount: table.orders.length,
-        totalAmount: payments.reduce((sum, payment) => sum + payment.amount, 0),
+        subtotalAmount,
+        discountAmount: appliedDiscount?.discountAmount ?? 0,
+        totalAmount: this.toMoney(
+          payments.reduce((sum, payment) => sum + payment.amount, 0),
+        ),
       },
     };
   }

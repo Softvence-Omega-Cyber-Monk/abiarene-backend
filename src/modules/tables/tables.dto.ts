@@ -60,4 +60,12 @@ export class CashierCheckoutDto {
   })
   @IsIn(['CASH', 'CARD'])
   method!: 'CASH' | 'CARD';
+
+  @ApiPropertyOptional({
+    description: 'Optional discount ID to apply during checkout',
+    example: 'discount-id',
+  })
+  @IsOptional()
+  @IsString()
+  discountId?: string;
 }

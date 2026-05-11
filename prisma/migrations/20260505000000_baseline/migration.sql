@@ -8,6 +8,15 @@ CREATE TYPE "TenantStatus" AS ENUM ('ACTIVE', 'INACTIVE', 'SUSPENDED');
 CREATE TYPE "UserStatus" AS ENUM ('ACTIVE', 'INACTIVE');
 
 -- CreateEnum
+CREATE TYPE "SubscriptionStatus" AS ENUM ('PENDING', 'ACTIVE', 'EXPIRED');
+
+-- CreateEnum
+CREATE TYPE "SubscriptionPaymentStatus" AS ENUM ('PENDING', 'COMPLETED', 'FAILED', 'CANCELLED');
+
+-- CreateEnum
+CREATE TYPE "SubscriptionPaymentProvider" AS ENUM ('STRIPE', 'ORANGE', 'MTN_MOMO', 'PAYSTACK', 'GODADDY_PAYMENTS');
+
+-- CreateEnum
 CREATE TYPE "RoleName" AS ENUM ('MANAGER', 'SERVER', 'KITCHEN', 'CASHIER', 'ADMIN');
 
 -- CreateEnum
@@ -26,9 +35,6 @@ CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED
 CREATE TYPE "PaymentMethod" AS ENUM ('CASH', 'CARD', 'MANUAL');
 
 -- CreateEnum
-CREATE TYPE "DiscountStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
-
--- CreateEnum
 CREATE TYPE "SupportTicketStatus" AS ENUM ('OPEN', 'CLOSED');
 
 -- CreateEnum
@@ -41,6 +47,9 @@ CREATE TABLE "tenants" (
     "industry" TEXT NOT NULL DEFAULT 'restaurant',
     "subscriptionFee" DOUBLE PRECISION NOT NULL DEFAULT 0,
     "status" "TenantStatus" NOT NULL DEFAULT 'ACTIVE',
+    "subscriptionStatus" "SubscriptionStatus" NOT NULL DEFAULT 'PENDING',
+    "subscriptionStartAt" TIMESTAMP(3),
+    "subscriptionEndAt" TIMESTAMP(3),
     "lastSync" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -230,18 +239,35 @@ CREATE TABLE "payments" (
 );
 
 -- CreateTable
-CREATE TABLE "discount_requests" (
+CREATE TABLE "subscription_payments" (
     "id" TEXT NOT NULL,
-    "orderId" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
-    "requestedBy" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "provider" "SubscriptionPaymentProvider" NOT NULL,
     "amount" DOUBLE PRECISION NOT NULL,
-    "reason" TEXT,
-    "status" "DiscountStatus" NOT NULL DEFAULT 'PENDING',
+    "currency" TEXT NOT NULL DEFAULT 'USD',
+    "status" "SubscriptionPaymentStatus" NOT NULL DEFAULT 'PENDING',
+    "reference" TEXT NOT NULL,
+    "externalReference" TEXT,
+    "completedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "discount_requests_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "subscription_payments_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "discounts" (
+    "id" TEXT NOT NULL,
+    "tenantId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "minimumPrice" DOUBLE PRECISION NOT NULL,
+    "offPrice" DOUBLE PRECISION NOT NULL,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "discounts_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -350,10 +376,16 @@ CREATE INDEX "payments_tenantId_idx" ON "payments"("tenantId");
 CREATE INDEX "payments_orderId_idx" ON "payments"("orderId");
 
 -- CreateIndex
-CREATE INDEX "discount_requests_tenantId_idx" ON "discount_requests"("tenantId");
+CREATE UNIQUE INDEX "subscription_payments_reference_key" ON "subscription_payments"("reference");
 
 -- CreateIndex
-CREATE INDEX "discount_requests_orderId_idx" ON "discount_requests"("orderId");
+CREATE INDEX "subscription_payments_tenantId_idx" ON "subscription_payments"("tenantId");
+
+-- CreateIndex
+CREATE INDEX "subscription_payments_userId_idx" ON "subscription_payments"("userId");
+
+-- CreateIndex
+CREATE INDEX "discounts_tenantId_idx" ON "discounts"("tenantId");
 
 -- CreateIndex
 CREATE INDEX "support_tickets_tenantId_idx" ON "support_tickets"("tenantId");
@@ -425,13 +457,13 @@ ALTER TABLE "payments" ADD CONSTRAINT "payments_orderId_fkey" FOREIGN KEY ("orde
 ALTER TABLE "payments" ADD CONSTRAINT "payments_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "discount_requests" ADD CONSTRAINT "discount_requests_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "orders"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "subscription_payments" ADD CONSTRAINT "subscription_payments_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "discount_requests" ADD CONSTRAINT "discount_requests_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "subscription_payments" ADD CONSTRAINT "subscription_payments_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "discount_requests" ADD CONSTRAINT "discount_requests_requestedBy_fkey" FOREIGN KEY ("requestedBy") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "discounts" ADD CONSTRAINT "discounts_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "support_tickets" ADD CONSTRAINT "support_tickets_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;

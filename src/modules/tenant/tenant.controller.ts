@@ -22,6 +22,7 @@ import { Roles } from '../../common/decorators/roles.decorator.js';
 import { AuthUser } from '../../common/interfaces/auth-user.interface.js';
 import {
   CreateTenantDto,
+  InitiateSubscriptionPaymentDto,
   ListTenantDto,
   ListTenantRolesDto,
   UpdateTenantRolesDto,
@@ -90,6 +91,47 @@ export class TenantController {
   ) {
     const tenantId = this.tenantId(user);
     return this.service.update(tenantId, tenantId, dto);
+  }
+
+  @Get('subscription/me')
+  @Roles('manager')
+  @ApiOperation({ summary: 'Get current tenant subscription status and payment options' })
+  @ApiResponse({ status: 200, description: 'Current tenant subscription details retrieved' })
+  getSubscription(@CurrentUser() user: AuthUser | undefined) {
+    return this.service.getSubscriptionDetails(this.tenantId(user));
+  }
+
+  @Post('subscription/pay')
+  @Roles('manager')
+  @ApiOperation({ summary: 'Initiate tenant subscription payment for the current manager tenant' })
+  @ApiResponse({ status: 201, description: 'Tenant subscription payment initiated' })
+  initiateSubscriptionPayment(
+    @CurrentUser() user: AuthUser | undefined,
+    @Body() dto: InitiateSubscriptionPaymentDto,
+  ) {
+    if (!user?.sub) {
+      throw new UnauthorizedException('Missing user context');
+    }
+
+    return this.service.initiateSubscriptionPayment(
+      this.tenantId(user),
+      user.sub,
+      dto,
+    );
+  }
+
+  @Get('subscription/payments/:reference/status')
+  @Roles('manager')
+  @ApiOperation({ summary: 'Get current tenant subscription payment status by reference' })
+  @ApiResponse({ status: 200, description: 'Tenant subscription payment status retrieved' })
+  getSubscriptionPaymentStatus(
+    @CurrentUser() user: AuthUser | undefined,
+    @Param('reference') reference: string,
+  ) {
+    return this.service.getSubscriptionPaymentStatus(
+      this.tenantId(user),
+      reference,
+    );
   }
 
   @Get(':tenantId/roles')
