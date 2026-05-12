@@ -29,13 +29,17 @@ import {
   UpdateTenantStatusDto,
   UpdateTenantDto,
 } from './tenant.dto.js';
+import { TenantSubscriptionService } from './tenant-subscription.service.js';
 import { TenantService } from './tenant.service.js';
 
 @ApiTags('Tenant')
 @ApiBearerAuth()
 @Controller('tenant')
 export class TenantController {
-  constructor(private readonly service: TenantService) {}
+  constructor(
+    private readonly service: TenantService,
+    private readonly subscriptionService: TenantSubscriptionService,
+  ) {}
 
   private tenantId(user?: AuthUser) {
     if (!user?.tenantId)
@@ -98,7 +102,7 @@ export class TenantController {
   @ApiOperation({ summary: 'Get current tenant subscription status and payment options' })
   @ApiResponse({ status: 200, description: 'Current tenant subscription details retrieved' })
   getSubscription(@CurrentUser() user: AuthUser | undefined) {
-    return this.service.getSubscriptionDetails(this.tenantId(user));
+    return this.subscriptionService.getSubscriptionDetails(this.tenantId(user));
   }
 
   @Post('subscription/pay')
@@ -113,7 +117,7 @@ export class TenantController {
       throw new UnauthorizedException('Missing user context');
     }
 
-    return this.service.initiateSubscriptionPayment(
+    return this.subscriptionService.initiateSubscriptionPayment(
       this.tenantId(user),
       user.sub,
       dto,
@@ -128,7 +132,7 @@ export class TenantController {
     @CurrentUser() user: AuthUser | undefined,
     @Param('reference') reference: string,
   ) {
-    return this.service.getSubscriptionPaymentStatus(
+    return this.subscriptionService.getSubscriptionPaymentStatus(
       this.tenantId(user),
       reference,
     );

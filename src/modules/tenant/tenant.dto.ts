@@ -153,4 +153,13 @@ export class InitiateSubscriptionPaymentDto {
   })
   @IsIn(['stripe', 'orange', 'mtnMomo', 'paystack', 'godaddyPayments'])
   provider!: 'stripe' | 'orange' | 'mtnMomo' | 'paystack' | 'godaddyPayments';
+
+  @ApiPropertyOptional({
+    description:
+      'Payer mobile number required for MTN MoMo request-to-pay, e.g. 46733123450',
+    example: '46733123450',
+  })
+  @IsOptional()
+  @IsString()
+  payerPhoneNumber?: string;
 }

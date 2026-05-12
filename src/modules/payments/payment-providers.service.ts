@@ -1,11 +1,19 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { MtnMomoPaymentProviderService } from './mtn-momo-payment-provider.service.js';
+import { PaystackPaymentProviderService } from './paystack-payment-provider.service.js';
+import { StripePaymentProviderService } from './stripe-payment-provider.service.js';
 
 type ProviderConfig = Record<string, string | null>;
 
 @Injectable()
 export class PaymentProvidersService {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly stripeProvider: StripePaymentProviderService,
+    private readonly mtnMomoProvider: MtnMomoPaymentProviderService,
+    private readonly paystackProvider: PaystackPaymentProviderService,
+  ) {}
 
   private getValue(key: string) {
     return this.configService.get<string>(key) ?? null;
@@ -21,103 +29,21 @@ export class PaymentProvidersService {
     return value;
   }
 
-  private async callStripe<T>(path: string, init?: RequestInit) {
-    const stripeConfig = this.getStripeConfig();
-
-    if (!stripeConfig.secretKey) {
-      throw new InternalServerErrorException(
-        'Stripe is not configured: missing STRIPE_SECRET_KEY',
-      );
-    }
-
-    const response = await fetch(`https://api.stripe.com${path}`, {
-      ...init,
-      headers: {
-        Authorization: `Bearer ${stripeConfig.secretKey}`,
-        ...(init?.headers ?? {}),
-      },
-    });
-
-    const payload = (await response.json()) as T & {
-      error?: { message?: string };
-    };
-
-    if (!response.ok) {
-      throw new InternalServerErrorException(
-        payload.error?.message ?? 'Stripe request failed',
-      );
-    }
-
-    return payload;
-  }
-
   getStripeConfig(): ProviderConfig {
-    return {
-      secretKey: this.getValue('STRIPE_SECRET_KEY'),
-      webhookSecret: this.getValue('STRIPE_WEBHOOK_SECRET'),
-      defaultCurrency: this.getValue('STRIPE_DEFAULT_CURRENCY') ?? 'usd',
-      subscriptionSuccessUrl:
-        this.getValue('STRIPE_SUBSCRIPTION_SUCCESS_URL'),
-      subscriptionCancelUrl: this.getValue('STRIPE_SUBSCRIPTION_CANCEL_URL'),
-    };
+    return this.stripeProvider.getConfig();
   }
 
-  async createStripeCheckoutSession(input: {
+  createStripeCheckoutSession(input: {
     amount: number;
     currency?: string;
     tenantName: string;
     reference: string;
   }) {
-    const stripeConfig = this.getStripeConfig();
-
-    const successUrl =
-      stripeConfig.subscriptionSuccessUrl ??
-      'http://localhost:5173/subscription/success?reference={CHECKOUT_REFERENCE}';
-    const cancelUrl =
-      stripeConfig.subscriptionCancelUrl ??
-      'http://localhost:5173/subscription/cancel?reference={CHECKOUT_REFERENCE}';
-
-    const body = new URLSearchParams();
-    body.set('mode', 'payment');
-    body.set('success_url', successUrl.replace('{CHECKOUT_REFERENCE}', input.reference));
-    body.set('cancel_url', cancelUrl.replace('{CHECKOUT_REFERENCE}', input.reference));
-    body.set('client_reference_id', input.reference);
-    body.set('line_items[0][quantity]', '1');
-    body.set('line_items[0][price_data][currency]', (input.currency ?? stripeConfig.defaultCurrency ?? 'usd').toLowerCase());
-    body.set('line_items[0][price_data][unit_amount]', String(Math.round(input.amount * 100)));
-    body.set(
-      'line_items[0][price_data][product_data][name]',
-      `${input.tenantName} Subscription`,
-    );
-    body.set(
-      'line_items[0][price_data][product_data][description]',
-      `Subscription payment for ${input.tenantName}`,
-    );
-
-    return this.callStripe<{
-      id: string;
-      url: string | null;
-      payment_status: string;
-      status: string;
-    }>('/v1/checkout/sessions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body,
-    });
+    return this.stripeProvider.createCheckoutSession(input);
   }
 
   retrieveStripeCheckoutSession(sessionId: string) {
-    return this.callStripe<{
-      id: string;
-      url: string | null;
-      payment_status: 'paid' | 'unpaid' | 'no_payment_required';
-      status: 'open' | 'complete' | 'expired';
-      client_reference_id: string | null;
-    }>(`/v1/checkout/sessions/${sessionId}`, {
-      method: 'GET',
-    });
+    return this.stripeProvider.retrieveCheckoutSession(sessionId);
   }
 
   getOrangeConfig(): ProviderConfig {
@@ -131,24 +57,39 @@ export class PaymentProvidersService {
   }
 
   getMtnMomoConfig(): ProviderConfig {
-    return {
-      baseUrl: this.getValue('MTN_MOMO_BASE_URL'),
-      subscriptionKey: this.getValue('MTN_MOMO_SUBSCRIPTION_KEY'),
-      apiKey: this.getValue('MTN_MOMO_API_KEY'),
-      apiSecret: this.getValue('MTN_MOMO_API_SECRET'),
-      targetEnvironment: this.getValue('MTN_MOMO_TARGET_ENVIRONMENT'),
-      webhookSecret: this.getValue('MTN_MOMO_WEBHOOK_SECRET'),
-    };
+    return this.mtnMomoProvider.getConfig();
+  }
+
+  createMtnMomoRequestToPay(input: {
+    amount: number;
+    currency?: string;
+    phoneNumber: string;
+    tenantName: string;
+    reference: string;
+  }) {
+    return this.mtnMomoProvider.createRequestToPay(input);
+  }
+
+  getMtnMomoRequestToPayStatus(referenceId: string) {
+    return this.mtnMomoProvider.getRequestToPayStatus(referenceId);
   }
 
   getPaystackConfig(): ProviderConfig {
-    return {
-      secretKey: this.getValue('PAYSTACK_SECRET_KEY'),
-      publicKey: this.getValue('PAYSTACK_PUBLIC_KEY'),
-      webhookSecret: this.getValue('PAYSTACK_WEBHOOK_SECRET'),
-      baseUrl:
-        this.getValue('PAYSTACK_API_BASE_URL') ?? 'https://api.paystack.co',
-    };
+    return this.paystackProvider.getConfig();
+  }
+
+  createPaystackTransaction(input: {
+    amount: number;
+    currency?: string;
+    email: string;
+    tenantName: string;
+    reference: string;
+  }) {
+    return this.paystackProvider.createTransaction(input);
+  }
+
+  verifyPaystackTransaction(reference: string) {
+    return this.paystackProvider.verifyTransaction(reference);
   }
 
   getGoDaddyPaymentsConfig(): ProviderConfig {
