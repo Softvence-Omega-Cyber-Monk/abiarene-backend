@@ -14,6 +14,18 @@ export class AdminService {
     private readonly jwtService: JwtService,
   ) {}
 
+  private toMoney(value: number) {
+    return Math.round(value * 100) / 100;
+  }
+
+  private toPercentChange(current: number, previous: number) {
+    if (previous === 0) {
+      return current === 0 ? 0 : 100;
+    }
+
+    return this.toMoney(((current - previous) / previous) * 100);
+  }
+
   async signup(dto: AdminSignupDto) {
     const [existingAdmin, existingUser] = await Promise.all([
       this.prisma.admin.findUnique({
@@ -54,21 +66,113 @@ export class AdminService {
   }
 
   async dashboard() {
-    const [tenants, users, orders, tickets, payments, revenue] = await Promise.all([
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const previousMonthStart = new Date(
+      now.getFullYear(),
+      now.getMonth() - 1,
+      1,
+    );
+
+    const [
+      totalTenants,
+      previousMonthTotalTenants,
+      activeTickets,
+      currentMonthClosedIssues,
+      previousMonthClosedIssues,
+      currentMonthRevenue,
+      previousMonthRevenue,
+    ] = await Promise.all([
       this.prisma.tenant.count(),
-      this.prisma.user.count(),
-      this.prisma.order.count(),
-      this.prisma.ticket.count(),
-      this.prisma.payment.count({ where: { status: 'COMPLETED' } }),
-      this.prisma.payment.aggregate({
-        where: { status: 'COMPLETED' },
+      this.prisma.tenant.count({
+        where: {
+          createdAt: {
+            lt: currentMonthStart,
+          },
+        },
+      }),
+      this.prisma.supportTicket.count({
+        where: {
+          status: 'OPEN',
+        },
+      }),
+      this.prisma.supportTicket.count({
+        where: {
+          status: 'CLOSED',
+          updatedAt: {
+            gte: currentMonthStart,
+            lt: nextMonthStart,
+          },
+        },
+      }),
+      this.prisma.supportTicket.count({
+        where: {
+          status: 'CLOSED',
+          updatedAt: {
+            gte: previousMonthStart,
+            lt: currentMonthStart,
+          },
+        },
+      }),
+      this.prisma.subscriptionPayment.aggregate({
+        where: {
+          status: 'COMPLETED',
+          completedAt: {
+            gte: currentMonthStart,
+            lt: nextMonthStart,
+          },
+        },
+        _sum: { amount: true },
+      }),
+      this.prisma.subscriptionPayment.aggregate({
+        where: {
+          status: 'COMPLETED',
+          completedAt: {
+            gte: previousMonthStart,
+            lt: currentMonthStart,
+          },
+        },
         _sum: { amount: true },
       }),
     ]);
 
+    const monthlyRevenue = this.toMoney(currentMonthRevenue._sum.amount ?? 0);
+    const previousMonthRevenueAmount = this.toMoney(
+      previousMonthRevenue._sum.amount ?? 0,
+    );
+
     return {
-      counts: { tenants, users, orders, tickets, completedPayments: payments },
-      revenue: revenue._sum.amount ?? 0,
+      tenants: {
+        total: totalTenants,
+        previousMonthTotal: previousMonthTotalTenants,
+        changePercentage: this.toPercentChange(
+          totalTenants,
+          previousMonthTotalTenants,
+        ),
+      },
+      support: {
+        activeTickets,
+        closedIssues: currentMonthClosedIssues,
+        previousMonthClosedIssues,
+        closedIssuesChangePercentage: this.toPercentChange(
+          currentMonthClosedIssues,
+          previousMonthClosedIssues,
+        ),
+      },
+      revenue: {
+        monthly: monthlyRevenue,
+        previousMonth: previousMonthRevenueAmount,
+        changePercentage: this.toPercentChange(
+          monthlyRevenue,
+          previousMonthRevenueAmount,
+        ),
+      },
+      meta: {
+        comparedMonthStart: previousMonthStart,
+        currentMonthStart,
+        comparedAt: now,
+      },
     };
   }
 }

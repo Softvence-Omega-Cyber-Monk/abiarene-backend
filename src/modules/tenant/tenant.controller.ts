@@ -85,6 +85,14 @@ export class TenantController {
     return this.service.read(tenantId, tenantId);
   }
 
+  @Get('overview')
+  @Roles('manager')
+  @ApiOperation({ summary: 'Get manager overview metrics for the current tenant' })
+  @ApiResponse({ status: 200, description: 'Manager overview metrics retrieved' })
+  overview(@CurrentUser() user: AuthUser | undefined) {
+    return this.service.getManagerOverview(this.tenantId(user));
+  }
+
   @Patch('me')
   @Roles('manager')
   @ApiOperation({ summary: 'Update current tenant' })

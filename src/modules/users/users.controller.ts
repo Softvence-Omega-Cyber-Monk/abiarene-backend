@@ -19,7 +19,12 @@ import {
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { AuthUser } from '../../common/interfaces/auth-user.interface.js';
-import { CreateUsersDto, ListUsersDto, UpdateUsersDto } from './users.dto.js';
+import {
+  CreateUsersDto,
+  ListUsersDto,
+  UpdateMyProfileDto,
+  UpdateUsersDto,
+} from './users.dto.js';
 import { UsersService } from './users.service.js';
 
 @ApiTags('Users')
@@ -70,6 +75,21 @@ export class UsersController {
       this.tenantId(user),
       this.listDto(page, limit, search),
     );
+  }
+
+  @Patch('me')
+  @Roles('manager')
+  @ApiOperation({ summary: 'Manager update own profile under current tenant' })
+  @ApiResponse({ status: 200, description: 'Manager profile updated' })
+  updateMyProfile(
+    @CurrentUser() user: AuthUser | undefined,
+    @Body() dto: UpdateMyProfileDto,
+  ) {
+    if (!user?.sub) {
+      throw new UnauthorizedException('Missing user context');
+    }
+
+    return this.usersService.updateMyProfile(this.tenantId(user), user.sub, dto);
   }
 
   @Get(':id')

@@ -30,6 +30,27 @@ export class InventoryService {
     return buildPaginatedResponse(products, dto.page, dto.limit, total);
   }
 
+  async stockAlerts(tenantId: string) {
+    const products = await this.prisma.product.findMany({
+      where: { tenantId } as any,
+      orderBy: [{ stock: 'asc' }, { updatedAt: 'desc' }] as any,
+    });
+
+    const lowStockProducts = products.filter(
+      (product) => product.stock <= product.lowStockThreshold,
+    );
+
+    return {
+      data: lowStockProducts.map((product) => ({
+        ...product,
+        shortage: product.lowStockThreshold - product.stock,
+      })),
+      meta: {
+        count: lowStockProducts.length,
+      },
+    };
+  }
+
   read(tenantId: string, id: string) {
     return this.prisma.product.findFirst({ where: { tenantId, id } as any });
   }

@@ -17,6 +17,18 @@ const DEFAULT_TENANT_ROLE = RoleName.MANAGER;
 export class TenantService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private toMoney(value: number) {
+    return Math.round(value * 100) / 100;
+  }
+
+  private toPercentChange(current: number, previous: number) {
+    if (previous === 0) {
+      return current === 0 ? 0 : 100;
+    }
+
+    return this.toMoney(((current - previous) / previous) * 100);
+  }
+
   create(dto: CreateTenantDto) {
     const roleCreates: Prisma.RoleCreateWithoutTenantInput[] = [
       {
@@ -232,6 +244,102 @@ export class TenantService {
       where: { id: tenantId },
       data: { status },
     });
+  }
+
+  async getManagerOverview(tenantId: string) {
+    await this.ensureTenantExists(tenantId);
+
+    const now = new Date();
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+
+    const tomorrowStart = new Date(todayStart);
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+
+    const previousDayStart = new Date(todayStart);
+    previousDayStart.setDate(previousDayStart.getDate() - 1);
+
+    const [
+      totalTransactions,
+      activeDiscountCount,
+      todayPayments,
+      previousDayPayments,
+    ] = await Promise.all([
+      this.prisma.payment.count({
+        where: {
+          tenantId,
+          status: 'COMPLETED',
+        },
+      }),
+      this.prisma.discount.count({
+        where: {
+          tenantId,
+          isActive: true,
+        },
+      }),
+      this.prisma.payment.findMany({
+        where: {
+          tenantId,
+          status: 'COMPLETED',
+          createdAt: {
+            gte: todayStart,
+            lt: tomorrowStart,
+          },
+        },
+        select: {
+          amount: true,
+        },
+      }),
+      this.prisma.payment.findMany({
+        where: {
+          tenantId,
+          status: 'COMPLETED',
+          createdAt: {
+            gte: previousDayStart,
+            lt: todayStart,
+          },
+        },
+        select: {
+          amount: true,
+        },
+      }),
+    ]);
+
+    const todaySales = this.toMoney(
+      todayPayments.reduce((sum, payment) => sum + payment.amount, 0),
+    );
+    const previousDaySales = this.toMoney(
+      previousDayPayments.reduce((sum, payment) => sum + payment.amount, 0),
+    );
+    const todayTransactions = todayPayments.length;
+    const previousDayTransactions = previousDayPayments.length;
+
+    return {
+      dailySales: todaySales,
+      sales: {
+        today: todaySales,
+        previousDay: previousDaySales,
+        changePercentage: this.toPercentChange(todaySales, previousDaySales),
+      },
+      transactions: {
+        total: totalTransactions,
+        today: todayTransactions,
+        previousDay: previousDayTransactions,
+        changePercentage: this.toPercentChange(
+          todayTransactions,
+          previousDayTransactions,
+        ),
+      },
+      discounts: {
+        activeCount: activeDiscountCount,
+      },
+      meta: {
+        currency: 'USD',
+        comparedAt: now,
+        todayStart,
+        previousDayStart,
+      },
+    };
   }
 
   private async ensureTenantExists(tenantId: string) {

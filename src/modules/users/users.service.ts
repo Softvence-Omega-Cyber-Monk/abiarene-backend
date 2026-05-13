@@ -1,6 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { CreateUsersDto, ListUsersDto, UpdateUsersDto } from './users.dto.js';
+import {
+  CreateUsersDto,
+  ListUsersDto,
+  UpdateMyProfileDto,
+  UpdateUsersDto,
+} from './users.dto.js';
 import { StaffRoleName } from '../../common/constants/role-name.js';
 import { buildPaginatedResponse } from '../../common/utils/pagination.js';
 
@@ -93,6 +98,38 @@ export class UsersService {
       },
     });
     return this.readForTenant(tenantId, id);
+  }
+
+  async updateMyProfile(
+    tenantId: string,
+    userId: string,
+    dto: UpdateMyProfileDto,
+  ) {
+    const existingUser = await this.prisma.user.findFirst({
+      where: { id: userId, tenantId },
+      select: {
+        id: true,
+        email: true,
+        pin: true,
+      },
+    });
+
+    if (!existingUser) {
+      return null;
+    }
+
+    await this.ensureEmailAvailable(dto.email ?? existingUser.email, userId);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        name: dto.name,
+        email: dto.email,
+        pin: dto.pin,
+      },
+    });
+
+    return this.readForTenant(tenantId, userId);
   }
 
   deleteForTenant(tenantId: string, id: string) {

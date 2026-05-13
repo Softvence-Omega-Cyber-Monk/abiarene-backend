@@ -55,6 +55,31 @@ export class UpdateUsersDto extends PartialType(CreateUsersDto) {
   status?: 'ACTIVE' | 'INACTIVE';
 }
 
+export class UpdateMyProfileDto {
+  @ApiPropertyOptional({ description: 'User full name', minLength: 2, maxLength: 80 })
+  @IsOptional()
+  @IsString()
+  @Length(2, 80)
+  name?: string;
+
+  @ApiPropertyOptional({ description: 'User email', example: 'manager@example.com' })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @ApiPropertyOptional({
+    description: '4-digit PIN',
+    minLength: 4,
+    maxLength: 4,
+    pattern: '^\\d{4}$',
+    example: '1234',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{4}$/, { message: 'PIN must be exactly 4 digits' })
+  pin?: string;
+}
+
 export class ListUsersDto {
   @ApiPropertyOptional({ default: 1, minimum: 1 })
   @IsOptional()

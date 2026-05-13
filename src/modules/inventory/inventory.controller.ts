@@ -66,6 +66,14 @@ export class InventoryController {
     } as ListInventoryDto);
   }
 
+  @Get('stock-alerts')
+  @Roles('manager')
+  @ApiOperation({ summary: 'List low-stock inventory alerts under your current tenant' })
+  @ApiResponse({ status: 200, description: 'Low-stock inventory alerts retrieved for your current tenant' })
+  stockAlerts(@CurrentUser() user: AuthUser | undefined) {
+    return this.service.stockAlerts(this.tenantId(user));
+  }
+
   @Get('by-inventory/:inventory')
   @ApiOperation({ summary: 'Get inventory item by inventory value' })
   @ApiParam({
