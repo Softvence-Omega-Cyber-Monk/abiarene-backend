@@ -91,6 +91,16 @@ enum SupportMessageSenderRole {
   MANAGER
 }
 
+enum NotificationType {
+  ORDER_SENT_TO_KITCHEN
+  ORDER_CANCELLED
+  ORDER_READY
+  ORDER_ARCHIVED
+  PAYMENT_COMPLETED
+  SUBSCRIPTION_PAID
+  GENERIC
+}
+
 // ─── Tenant ─────────────────────────────────────────────────────
 
 model Tenant {
@@ -118,6 +128,7 @@ model Tenant {
   subscriptionPayments SubscriptionPayment[]
   discounts       Discount[]
   supportTickets  SupportTicket[]
+  notifications   Notification[]
 
   @@map("tenants")
 }
@@ -170,6 +181,7 @@ model User {
   tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   orders    Order[]    @relation("CreatedByUser")
   subscriptionPayments SubscriptionPayment[]
+  notifications Notification[]
 
   @@unique([email])
   @@index([tenantId])
@@ -187,6 +199,7 @@ model Admin {
   status    String   @default("ACTIVE")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  notifications Notification[]
 
   @@map("admins")
 }
@@ -421,6 +434,30 @@ model Discount {
 
   @@index([tenantId])
   @@map("discounts")
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  tenantId  String?
+  userId    String?
+  adminId   String?
+  type      NotificationType
+  title     String
+  message   String
+  payload   Json?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  tenant    Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  admin     Admin?           @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([adminId])
+  @@index([isRead])
+  @@map("notifications")
 }
 
 // ─── Support Ticket ─────────────────────────────────────────────

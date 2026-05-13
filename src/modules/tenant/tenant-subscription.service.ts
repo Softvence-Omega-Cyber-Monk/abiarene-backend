@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { PaymentProvidersService } from '../payments/payment-providers.service.js';
 import { InitiateSubscriptionPaymentDto } from './tenant.dto.js';
@@ -13,6 +14,7 @@ export class TenantSubscriptionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly paymentProviders: PaymentProvidersService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private async activateTenantSubscription(tenantId: string) {
@@ -39,6 +41,17 @@ export class TenantSubscriptionService {
         subscriptionEndAt: nextEndAt,
       },
     });
+  }
+
+  private async getTenantName(tenantId: string) {
+    return (
+      (
+        await this.prisma.tenant.findUnique({
+          where: { id: tenantId },
+          select: { name: true },
+        })
+      )?.name ?? 'Unknown Tenant'
+    );
   }
 
   async getSubscriptionDetails(tenantId: string) {
@@ -345,6 +358,15 @@ export class TenantSubscriptionService {
         });
 
         await this.activateTenantSubscription(tenantId);
+        const tenantName = await this.getTenantName(tenantId);
+        await this.notifications.notifyTenantSubscriptionPaid({
+          tenantId,
+          tenantName,
+          provider: 'Stripe',
+          amount: payment.amount,
+          currency: payment.currency,
+          reference: payment.reference,
+        });
 
         return this.getSubscriptionPaymentStatus(tenantId, reference);
       }
@@ -373,6 +395,15 @@ export class TenantSubscriptionService {
         });
 
         await this.activateTenantSubscription(tenantId);
+        const tenantName = await this.getTenantName(tenantId);
+        await this.notifications.notifyTenantSubscriptionPaid({
+          tenantId,
+          tenantName,
+          provider: 'MTN MoMo',
+          amount: payment.amount,
+          currency: payment.currency,
+          reference: payment.reference,
+        });
 
         return this.getSubscriptionPaymentStatus(tenantId, reference);
       }
@@ -419,6 +450,15 @@ export class TenantSubscriptionService {
         });
 
         await this.activateTenantSubscription(tenantId);
+        const tenantName = await this.getTenantName(tenantId);
+        await this.notifications.notifyTenantSubscriptionPaid({
+          tenantId,
+          tenantName,
+          provider: 'Paystack',
+          amount: payment.amount,
+          currency: payment.currency,
+          reference: payment.reference,
+        });
 
         return this.getSubscriptionPaymentStatus(tenantId, reference);
       }

@@ -40,6 +40,9 @@ CREATE TYPE "SupportTicketStatus" AS ENUM ('OPEN', 'CLOSED');
 -- CreateEnum
 CREATE TYPE "SupportMessageSenderRole" AS ENUM ('ADMIN', 'MANAGER');
 
+-- CreateEnum
+CREATE TYPE "NotificationType" AS ENUM ('ORDER_SENT_TO_KITCHEN', 'ORDER_CANCELLED', 'ORDER_READY', 'ORDER_ARCHIVED', 'PAYMENT_COMPLETED', 'SUBSCRIPTION_PAID', 'GENERIC');
+
 -- CreateTable
 CREATE TABLE "tenants" (
     "id" TEXT NOT NULL,
@@ -271,6 +274,23 @@ CREATE TABLE "discounts" (
 );
 
 -- CreateTable
+CREATE TABLE "notifications" (
+    "id" TEXT NOT NULL,
+    "tenantId" TEXT,
+    "userId" TEXT,
+    "adminId" TEXT,
+    "type" "NotificationType" NOT NULL,
+    "title" TEXT NOT NULL,
+    "message" TEXT NOT NULL,
+    "payload" JSONB,
+    "isRead" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "notifications_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "support_tickets" (
     "id" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
@@ -388,6 +408,18 @@ CREATE INDEX "subscription_payments_userId_idx" ON "subscription_payments"("user
 CREATE INDEX "discounts_tenantId_idx" ON "discounts"("tenantId");
 
 -- CreateIndex
+CREATE INDEX "notifications_tenantId_idx" ON "notifications"("tenantId");
+
+-- CreateIndex
+CREATE INDEX "notifications_userId_idx" ON "notifications"("userId");
+
+-- CreateIndex
+CREATE INDEX "notifications_adminId_idx" ON "notifications"("adminId");
+
+-- CreateIndex
+CREATE INDEX "notifications_isRead_idx" ON "notifications"("isRead");
+
+-- CreateIndex
 CREATE INDEX "support_tickets_tenantId_idx" ON "support_tickets"("tenantId");
 
 -- CreateIndex
@@ -464,6 +496,15 @@ ALTER TABLE "subscription_payments" ADD CONSTRAINT "subscription_payments_userId
 
 -- AddForeignKey
 ALTER TABLE "discounts" ADD CONSTRAINT "discounts_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "notifications" ADD CONSTRAINT "notifications_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "notifications" ADD CONSTRAINT "notifications_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "notifications" ADD CONSTRAINT "notifications_adminId_fkey" FOREIGN KEY ("adminId") REFERENCES "admins"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "support_tickets" ADD CONSTRAINT "support_tickets_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;

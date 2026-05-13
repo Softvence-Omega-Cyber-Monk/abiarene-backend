@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PaymentMethod, Prisma } from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import {
   CashierCheckoutDto,
@@ -12,7 +13,10 @@ import { buildPaginatedResponse } from '../../common/utils/pagination.js';
 
 @Injectable()
 export class TablesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   private toMoney(value: number) {
     return Math.round(value * 100) / 100;
@@ -356,6 +360,19 @@ export class TablesService {
       },
     });
 
+    const totalAmount = this.toMoney(
+      payments.reduce((sum, payment) => sum + payment.amount, 0),
+    );
+
+    await this.notifications.notifyCashierPaymentCompleted({
+      tenantId,
+      tableId: table.id,
+      tableNumber: table.tableNumber,
+      paymentMethod: dto.method,
+      totalAmount,
+      orderCount: table.orders.length,
+    });
+
     return {
       table: await this.read(tenantId, table.id),
       paymentMethod: dto.method,
@@ -364,9 +381,7 @@ export class TablesService {
         orderCount: table.orders.length,
         subtotalAmount,
         discountAmount: appliedDiscount?.discountAmount ?? 0,
-        totalAmount: this.toMoney(
-          payments.reduce((sum, payment) => sum + payment.amount, 0),
-        ),
+        totalAmount,
       },
     };
   }

@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { CreateOrdersDto, ListOrdersDto, OrderItemDto, UpdateOrdersDto } from './orders.dto.js';
 import { TicketsService } from '../tickets/tickets.service.js';
 import { buildPaginatedResponse } from '../../common/utils/pagination.js';
@@ -9,6 +10,7 @@ export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ticketsService: TicketsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private readonly orderInclude = {
@@ -437,7 +439,16 @@ export class OrdersService {
   async cancel(tenantId: string, id: string) {
     const order = await this.prisma.order.findFirst({
       where: { tenantId, id },
-      select: { id: true, tableId: true, status: true },
+      select: {
+        id: true,
+        tableId: true,
+        status: true,
+        table: {
+          select: {
+            tableNumber: true,
+          },
+        },
+      },
     });
 
     if (!order) {
@@ -458,6 +469,13 @@ export class OrdersService {
       data: { status: 'AVAILABLE', served: false },
     });
 
+    await this.notifications.notifyOrderCancelled({
+      tenantId,
+      orderId: order.id,
+      tableId: order.tableId,
+      tableNumber: order.table.tableNumber,
+    });
+
     return this.read(tenantId, id);
   }
 
@@ -465,6 +483,12 @@ export class OrdersService {
     const order = await this.prisma.order.findFirst({
       where: { id, tenantId },
       include: {
+        table: {
+          select: {
+            id: true,
+            tableNumber: true,
+          },
+        },
         items: {
           select: { id: true },
         },
@@ -500,6 +524,13 @@ export class OrdersService {
     await this.prisma.order.updateMany({
       where: { tenantId, id },
       data: { status: 'PREPARING' },
+    });
+
+    await this.notifications.notifyOrderSentToKitchen({
+      tenantId,
+      orderId: order.id,
+      tableId: order.table.id,
+      tableNumber: order.table.tableNumber,
     });
 
     return this.read(tenantId, id);

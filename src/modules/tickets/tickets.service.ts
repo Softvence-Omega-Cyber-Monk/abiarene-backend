@@ -1,13 +1,16 @@
 import { randomBytes } from 'crypto';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { NotificationsGateway } from '../notifications/notifications.gateway.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { ListTicketsDto } from './tickets.dto.js';
 import { buildPaginatedResponse } from '../../common/utils/pagination.js';
 
 @Injectable()
 export class TicketsService {
-  constructor(private readonly prisma: PrismaService, private readonly notifications: NotificationsGateway) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   private mapTicketStatus(status: 'ACTIVE' | 'READY' | 'ARCHIVED') {
     switch (status) {
@@ -279,7 +282,21 @@ export class TicketsService {
   async bumpToReady(tenantId: string, id: string) {
     const ticket = await this.prisma.ticket.findFirst({
       where: { tenantId, id },
-      select: { id: true, orderId: true },
+      select: {
+        id: true,
+        ticketCode: true,
+        orderId: true,
+        order: {
+          select: {
+            tableId: true,
+            table: {
+              select: {
+                tableNumber: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!ticket) {
@@ -291,7 +308,16 @@ export class TicketsService {
       where: { tenantId, id: ticket.orderId },
       data: { status: 'READY' },
     });
-    this.notifications.broadcastKitchenReady({ tenantId, ticketId: id });
+
+    await this.notifications.notifyKitchenOrderReady({
+      tenantId,
+      ticketId: ticket.id,
+      ticketCode: ticket.ticketCode,
+      orderId: ticket.orderId,
+      tableId: ticket.order.tableId,
+      tableNumber: ticket.order.table.tableNumber,
+    });
+
     return this.read(tenantId, id);
   }
 
@@ -300,7 +326,18 @@ export class TicketsService {
       where: { tenantId, id },
       select: {
         id: true,
+        ticketCode: true,
         orderId: true,
+        order: {
+          select: {
+            tableId: true,
+            table: {
+              select: {
+                tableNumber: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -316,6 +353,15 @@ export class TicketsService {
     await this.prisma.order.updateMany({
       where: { tenantId, id: ticket.orderId },
       data: { status: 'COMPLETED' },
+    });
+
+    await this.notifications.notifyOrderArchived({
+      tenantId,
+      ticketId: ticket.id,
+      ticketCode: ticket.ticketCode,
+      orderId: ticket.orderId,
+      tableId: ticket.order.tableId,
+      tableNumber: ticket.order.table.tableNumber,
     });
 
     return this.read(tenantId, id);

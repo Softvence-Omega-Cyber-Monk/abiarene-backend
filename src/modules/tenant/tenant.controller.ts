@@ -77,7 +77,7 @@ export class TenantController {
   }
 
   @Get('me')
-  @Roles('manager')
+  @Roles('manager', 'server', 'kitchen', 'cashier')
   @ApiOperation({ summary: 'Get current tenant' })
   @ApiResponse({ status: 200, description: 'Current tenant retrieved' })
   read(@CurrentUser() user: AuthUser | undefined) {
