@@ -19,6 +19,7 @@ import { TablesModule } from './modules/tables/tables.module.js';
 import { TenantModule } from './modules/tenant/tenant.module.js';
 import { TicketsModule } from './modules/tickets/tickets.module.js';
 import { UsersModule } from './modules/users/users.module.js';
+import { UploadsModule } from './modules/uploads/uploads.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 
 @Module({
@@ -38,6 +39,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
     NotificationsModule,
     SupportModule,
     AdminModule,
+    UploadsModule,
   ],
   controllers: [AppController],
   providers: [
