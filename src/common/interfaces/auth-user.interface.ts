@@ -4,4 +4,5 @@ export interface AuthUser {
   email?: string;
   tenantId: string;
   role: string;
+  tokenVersion?: number;
 }

@@ -58,9 +58,13 @@ export class AdminService {
     });
 
     const payload = { sub: admin.id, email: admin.email, role: RoleName.ADMIN };
+    const authPayload = {
+      ...payload,
+      tokenVersion: 0,
+    };
 
     return {
-      accessToken: await this.jwtService.signAsync(payload),
+      accessToken: await this.jwtService.signAsync(authPayload),
       admin,
     };
   }

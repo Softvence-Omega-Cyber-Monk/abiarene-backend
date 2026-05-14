@@ -24,6 +24,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     role: string;
     name?: string;
     email?: string;
+    tokenVersion?: number;
   }) {
     // Handle admin tokens
     if (payload.role?.toUpperCase() === RoleName.ADMIN) {
@@ -35,10 +36,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         throw new UnauthorizedException('Admin not found or inactive');
       }
 
+      if ((payload.tokenVersion ?? 0) !== admin.tokenVersion) {
+        throw new UnauthorizedException('Token has been revoked');
+      }
+
       return {
         sub: admin.id,
         email: admin.email,
         role: RoleName.ADMIN,
+        tokenVersion: admin.tokenVersion,
       };
     }
 
@@ -60,12 +66,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Invalid token subject');
     }
 
+    if ((payload.tokenVersion ?? 0) !== user.tokenVersion) {
+      throw new UnauthorizedException('Token has been revoked');
+    }
+
     return {
       sub: user.id,
       name: user.name,
       email: user.email,
       tenantId: user.tenantId,
       role: user.role.name,
+      tokenVersion: user.tokenVersion,
     };
   }
 }

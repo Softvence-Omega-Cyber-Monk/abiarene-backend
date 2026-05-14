@@ -172,6 +172,7 @@ model User {
   image     String?
   email     String
   pin       String
+  tokenVersion Int     @default(0)
   roleId    String
   tenantId  String
   status    UserStatus @default(ACTIVE)
@@ -198,6 +199,7 @@ model Admin {
   pin       String
   name      String
   image     String?
+  tokenVersion Int    @default(0)
   status    String   @default("ACTIVE")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

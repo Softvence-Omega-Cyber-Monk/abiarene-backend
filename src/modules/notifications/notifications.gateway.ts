@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Socket, Server } from 'socket.io';
 import { RoleName } from '../../common/constants/role-name.js';
+import { PrismaService } from '../../prisma/prisma.service.js';
 
 @WebSocketGateway({ namespace: 'notifications', cors: true })
 export class NotificationsGateway implements OnGatewayConnection {
@@ -19,6 +20,7 @@ export class NotificationsGateway implements OnGatewayConnection {
   constructor(
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
+    private readonly prisma: PrismaService,
   ) {}
 
   private extractToken(client: Socket) {
@@ -52,9 +54,36 @@ export class NotificationsGateway implements OnGatewayConnection {
         sub: string;
         role: string;
         tenantId?: string;
+        tokenVersion?: number;
       }>(token, {
         secret: this.configService.getOrThrow<string>('JWT_SECRET'),
       });
+
+      if (payload.role?.toUpperCase() === RoleName.ADMIN) {
+        const admin = await this.prisma.admin.findFirst({
+          where: { id: payload.sub, status: 'ACTIVE' },
+          select: { id: true, tokenVersion: true },
+        });
+
+        if (!admin || (payload.tokenVersion ?? 0) !== admin.tokenVersion) {
+          client.disconnect();
+          return;
+        }
+      } else {
+        const user = await this.prisma.user.findFirst({
+          where: {
+            id: payload.sub,
+            tenantId: payload.tenantId,
+            status: 'ACTIVE',
+          },
+          select: { id: true, tokenVersion: true },
+        });
+
+        if (!user || (payload.tokenVersion ?? 0) !== user.tokenVersion) {
+          client.disconnect();
+          return;
+        }
+      }
 
       client.data.user = payload;
       client.join(`user:${payload.sub}`);

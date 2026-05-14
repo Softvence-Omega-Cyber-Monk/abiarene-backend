@@ -43,6 +43,7 @@ export class AuthService {
         sub: admin.id,
         email: admin.email,
         role: RoleName.ADMIN,
+        tokenVersion: admin.tokenVersion,
       };
 
       return {
@@ -66,11 +67,34 @@ export class AuthService {
       email: user.email,
       tenantId: user.tenantId,
       role: user.role.name,
+      tokenVersion: user.tokenVersion,
     };
 
     return {
       accessToken: await this.jwtService.signAsync(payload),
       user: payload,
     };
+  }
+
+  async logout(user: {
+    sub: string;
+    role: string;
+    tenantId?: string;
+  }) {
+    if (user.role?.toUpperCase() === RoleName.ADMIN) {
+      await this.prisma.admin.update({
+        where: { id: user.sub },
+        data: { tokenVersion: { increment: 1 } },
+      });
+
+      return { message: 'Logged out successfully' };
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.sub },
+      data: { tokenVersion: { increment: 1 } },
+    });
+
+    return { message: 'Logged out successfully' };
   }
 }
