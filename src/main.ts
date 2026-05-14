@@ -7,12 +7,15 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const port = parseInt(process.env.PORT ?? '3000', 10);
   const allowedOrigins = process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
+    ? process.env.ALLOWED_ORIGINS.split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean)
     : [
         'http://localhost:5173',
         'http://localhost:5174',
         'http://localhost:3000',
         'http://localhost:3001',
+        'https://abiarene-frontend.vercel.app',
       ];
 
   app.setGlobalPrefix('api');
