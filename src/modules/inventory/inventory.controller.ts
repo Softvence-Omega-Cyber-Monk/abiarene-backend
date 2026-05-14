@@ -109,7 +109,7 @@ export class InventoryController {
   }
 
   @Delete(':id')
-  @Roles('admin')
+  @Roles('manager', 'admin')
   @ApiOperation({ summary: 'Delete inventory item by ID' })
   @ApiResponse({ status: 200, description: 'Inventory item deleted' })
   delete(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
