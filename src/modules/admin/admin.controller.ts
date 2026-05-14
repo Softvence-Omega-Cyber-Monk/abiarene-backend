@@ -41,4 +41,14 @@ export class AdminController {
     if (!user?.sub) throw new UnauthorizedException('Missing admin context');
     return this.adminService.dashboard();
   }
+
+  @Get('me')
+  @Roles('admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get admin own profile' })
+  @ApiResponse({ status: 200, description: 'Admin profile retrieved' })
+  getMyProfile(@CurrentUser() user: AuthUser | undefined) {
+    if (!user?.sub) throw new UnauthorizedException('Missing admin context');
+    return this.adminService.getMyProfile(user.sub);
+  }
 }

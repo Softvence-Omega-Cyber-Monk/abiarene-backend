@@ -20,6 +20,14 @@ export class CreateUsersDto {
   @Length(2, 80)
   name!: string;
 
+  @ApiPropertyOptional({
+    description: 'User image URL',
+    example: 'https://res.cloudinary.com/demo/image/upload/sample.jpg',
+  })
+  @IsOptional()
+  @IsString()
+  image?: string;
+
   @ApiProperty({ description: 'User email', example: 'server@example.com' })
   @IsEmail()
   email!: string;
@@ -61,6 +69,14 @@ export class UpdateMyProfileDto {
   @IsString()
   @Length(2, 80)
   name?: string;
+
+  @ApiPropertyOptional({
+    description: 'User image URL',
+    example: 'https://res.cloudinary.com/demo/image/upload/sample.jpg',
+  })
+  @IsOptional()
+  @IsString()
+  image?: string;
 
   @ApiPropertyOptional({ description: 'User email', example: 'manager@example.com' })
   @IsOptional()

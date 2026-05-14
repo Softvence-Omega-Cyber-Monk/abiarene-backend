@@ -87,6 +87,7 @@ CREATE TABLE "roles" (
 CREATE TABLE "users" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
+    "image" TEXT,
     "email" TEXT NOT NULL,
     "pin" TEXT NOT NULL,
     "roleId" TEXT NOT NULL,
@@ -104,6 +105,7 @@ CREATE TABLE "admins" (
     "email" TEXT NOT NULL,
     "pin" TEXT NOT NULL,
     "name" TEXT NOT NULL,
+    "image" TEXT,
     "status" TEXT NOT NULL DEFAULT 'ACTIVE',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,

@@ -25,6 +25,7 @@ export class UsersService {
     return this.prisma.user.create({
       data: {
         name: dto.name,
+        image: dto.image,
         email: dto.email,
         pin: dto.pin,
         roleId: role.id,
@@ -91,6 +92,7 @@ export class UsersService {
       where: { id, tenantId },
       data: {
         name: dto.name,
+        image: dto.image,
         email: dto.email,
         pin: dto.pin,
         roleId: role.id,
@@ -124,11 +126,16 @@ export class UsersService {
       where: { id: userId },
       data: {
         name: dto.name,
+        image: dto.image,
         email: dto.email,
         pin: dto.pin,
       },
     });
 
+    return this.readForTenant(tenantId, userId);
+  }
+
+  readMyProfile(tenantId: string, userId: string) {
     return this.readForTenant(tenantId, userId);
   }
 

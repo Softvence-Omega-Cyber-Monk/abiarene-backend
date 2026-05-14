@@ -169,6 +169,7 @@ model Role {
 model User {
   id        String     @id @default(uuid())
   name      String
+  image     String?
   email     String
   pin       String
   roleId    String
@@ -196,6 +197,7 @@ model Admin {
   email     String   @unique
   pin       String
   name      String
+  image     String?
   status    String   @default("ACTIVE")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

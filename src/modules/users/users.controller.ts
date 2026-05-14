@@ -77,10 +77,22 @@ export class UsersController {
     );
   }
 
+  @Get('me')
+  @Roles('manager', 'server', 'kitchen', 'cashier')
+  @ApiOperation({ summary: 'Get own profile under current tenant' })
+  @ApiResponse({ status: 200, description: 'Own profile retrieved' })
+  readMyProfile(@CurrentUser() user: AuthUser | undefined) {
+    if (!user?.sub) {
+      throw new UnauthorizedException('Missing user context');
+    }
+
+    return this.usersService.readMyProfile(this.tenantId(user), user.sub);
+  }
+
   @Patch('me')
-  @Roles('manager')
-  @ApiOperation({ summary: 'Manager update own profile under current tenant' })
-  @ApiResponse({ status: 200, description: 'Manager profile updated' })
+  @Roles('manager', 'server', 'kitchen', 'cashier')
+  @ApiOperation({ summary: 'Update own profile under current tenant' })
+  @ApiResponse({ status: 200, description: 'Own profile updated' })
   updateMyProfile(
     @CurrentUser() user: AuthUser | undefined,
     @Body() dto: UpdateMyProfileDto,
