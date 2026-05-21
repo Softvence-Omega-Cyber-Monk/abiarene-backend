@@ -32,7 +32,7 @@ export class MenuController {
   }
 
   @Post()
-  @Roles('manager')
+  @Roles('manager', 'supervisor')
   @ApiOperation({ summary: 'Create item under your current tenant' })
   @ApiResponse({ status: 201, description: 'Item created under your current tenant' })
   create(@CurrentUser() user: AuthUser | undefined, @Body() dto: CreateMenuDto) {
@@ -62,7 +62,7 @@ export class MenuController {
   }
 
   @Patch(':id')
-  @Roles('manager')
+  @Roles('manager', 'supervisor')
   @ApiOperation({ summary: 'Update item by item ID under your current tenant' })
   @ApiResponse({ status: 200, description: 'Item updated under your current tenant' })
   update(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string, @Body() dto: UpdateMenuDto) {
@@ -70,7 +70,7 @@ export class MenuController {
   }
 
   @Delete(':id')
-  @Roles('manager')
+  @Roles('manager', 'supervisor')
   @ApiOperation({ summary: 'Delete item by item ID under your current tenant' })
   @ApiResponse({ status: 200, description: 'Item deleted under your current tenant' })
   delete(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {

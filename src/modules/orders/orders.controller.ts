@@ -19,7 +19,7 @@ export class OrdersController {
   }
 
   @Post()
-  @Roles('manager', 'server')
+  @Roles('manager', 'supervisor', 'server')
   @ApiOperation({ summary: 'Create a confirmed order with selected menu items for a table under your current tenant' })
   @ApiResponse({ status: 201, description: 'Confirmed order created with selected menu items and table marked occupied under your current tenant' })
   create(@CurrentUser() user: AuthUser | undefined, @Body() dto: CreateOrdersDto) {
@@ -28,7 +28,7 @@ export class OrdersController {
   }
 
   @Get()
-  @Roles('manager', 'server')
+  @Roles('manager', 'supervisor', 'server')
   @ApiOperation({ summary: 'List orders under your current tenant' })
   @ApiResponse({ status: 200, description: 'Orders retrieved' })
   @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
@@ -45,7 +45,7 @@ export class OrdersController {
   }
 
   @Get('history')
-  @Roles('manager', 'cashier')
+  @Roles('manager', 'supervisor', 'cashier')
   @ApiOperation({ summary: 'List paid completed order history under your current tenant' })
   @ApiResponse({ status: 200, description: 'Paid completed order history retrieved' })
   @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
@@ -62,7 +62,7 @@ export class OrdersController {
   }
 
   @Get(':id')
-  @Roles('manager', 'server')
+  @Roles('manager', 'supervisor', 'server')
   @ApiOperation({ summary: 'Get order by ID under your current tenant' })
   @ApiResponse({ status: 200, description: 'Order retrieved' })
   read(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
@@ -70,7 +70,7 @@ export class OrdersController {
   }
 
   @Patch(':id')
-  @Roles('manager', 'server')
+  @Roles('manager', 'supervisor', 'server')
   @ApiOperation({ summary: 'Update order by ID under your current tenant' })
   @ApiResponse({ status: 200, description: 'Order updated' })
   update(
@@ -82,7 +82,7 @@ export class OrdersController {
   }
 
   @Delete(':id')
-  @Roles('manager', 'server')
+  @Roles('manager', 'supervisor', 'server')
   @ApiOperation({ summary: 'Delete order by ID under your current tenant' })
   @ApiResponse({ status: 200, description: 'Order deleted' })
   delete(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
@@ -90,7 +90,7 @@ export class OrdersController {
   }
 
   @Post(':id/cancel')
-  @Roles('manager', 'server')
+  @Roles('manager', 'supervisor', 'server')
   @ApiOperation({ summary: 'Cancel an order under your current tenant' })
   @ApiResponse({ status: 201, description: 'Order cancelled and table released' })
   cancel(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
@@ -98,7 +98,7 @@ export class OrdersController {
   }
 
   @Post(':id/send-to-kitchen')
-  @Roles('manager', 'server')
+  @Roles('manager', 'supervisor', 'server')
   @ApiOperation({ summary: 'Send an order to kitchen and create a kitchen ticket under your current tenant' })
   @ApiResponse({ status: 201, description: 'Order sent to kitchen, kitchen ticket created, and order status changed to PREPARING' })
   sendToKitchen(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {

@@ -43,6 +43,7 @@ enum SubscriptionPaymentProvider {
 
 enum RoleName {
   MANAGER
+  SUPERVISOR
   SERVER
   KITCHEN
   CASHIER

@@ -40,7 +40,7 @@ export class InventoryController {
   }
 
   @Post()
-  @Roles('manager', 'admin')
+  @Roles('manager', 'supervisor', 'admin')
   @ApiOperation({ summary: 'Create inventory item under your current tenant' })
   @ApiResponse({ status: 201, description: 'Inventory item created under your current tenant' })
   create(
@@ -67,7 +67,7 @@ export class InventoryController {
   }
 
   @Get('stock-alerts')
-  @Roles('manager')
+  @Roles('manager', 'supervisor')
   @ApiOperation({ summary: 'List low-stock inventory alerts under your current tenant' })
   @ApiResponse({ status: 200, description: 'Low-stock inventory alerts retrieved for your current tenant' })
   stockAlerts(@CurrentUser() user: AuthUser | undefined) {
@@ -97,7 +97,7 @@ export class InventoryController {
   }
 
   @Patch(':id')
-  @Roles('manager', 'admin')
+  @Roles('manager', 'supervisor', 'admin')
   @ApiOperation({ summary: 'Update inventory item by ID' })
   @ApiResponse({ status: 200, description: 'Inventory item updated' })
   update(
@@ -109,7 +109,7 @@ export class InventoryController {
   }
 
   @Delete(':id')
-  @Roles('manager', 'admin')
+  @Roles('manager', 'supervisor', 'admin')
   @ApiOperation({ summary: 'Delete inventory item by ID' })
   @ApiResponse({ status: 200, description: 'Inventory item deleted' })
   delete(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {

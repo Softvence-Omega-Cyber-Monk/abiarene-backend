@@ -11,7 +11,7 @@ import {
 import { RoleName } from '../../common/constants/role-name.js';
 import { buildPaginatedResponse } from '../../common/utils/pagination.js';
 
-const DEFAULT_TENANT_ROLE = RoleName.MANAGER;
+const DEFAULT_TENANT_ROLE = RoleName.SUPERVISOR;
 
 @Injectable()
 export class TenantService {
@@ -51,12 +51,12 @@ export class TenantService {
 
     return this.prisma.user
       .findFirst({
-        where: { email: dto.managerEmail },
+        where: { email: dto.supervisorEmail },
         select: { id: true },
       })
-      .then(async (existingManager) => {
-        if (existingManager) {
-          throw new BadRequestException('Manager email already exists');
+      .then(async (existingSupervisor) => {
+        if (existingSupervisor) {
+          throw new BadRequestException('Supervisor email already exists');
         }
 
         const tenant = await this.prisma.tenant.create({
@@ -78,22 +78,22 @@ export class TenantService {
           },
         });
 
-        const managerRole = tenant.roles.find(
+        const supervisorRole = tenant.roles.find(
           (role) => role.name === DEFAULT_TENANT_ROLE,
         );
 
-        if (!managerRole) {
+        if (!supervisorRole) {
           await this.prisma.tenant.delete({ where: { id: tenant.id } });
-          throw new BadRequestException('Default manager role was not created');
+          throw new BadRequestException('Default supervisor role was not created');
         }
 
         try {
-          const manager = await this.prisma.user.create({
+          const supervisor = await this.prisma.user.create({
             data: {
-              name: `${dto.name} Manager`,
-              email: dto.managerEmail,
-              pin: dto.managerPin,
-              roleId: managerRole.id,
+              name: `${dto.name} Supervisor`,
+              email: dto.supervisorEmail,
+              pin: dto.supervisorPin,
+              roleId: supervisorRole.id,
               tenantId: tenant.id,
               status: 'ACTIVE',
             },
@@ -104,7 +104,7 @@ export class TenantService {
 
           return {
             ...tenant,
-            manager,
+            supervisor,
           };
         } catch (error) {
           await this.prisma.tenant.delete({ where: { id: tenant.id } });
@@ -113,7 +113,7 @@ export class TenantService {
             error instanceof Prisma.PrismaClientKnownRequestError &&
             error.code === 'P2002'
           ) {
-            throw new BadRequestException('Manager email already exists');
+            throw new BadRequestException('Supervisor email already exists');
           }
 
           throw error;
@@ -128,7 +128,7 @@ export class TenantService {
           error instanceof Prisma.PrismaClientKnownRequestError &&
           error.code === 'P2002'
         ) {
-          throw new BadRequestException('Manager email already exists');
+          throw new BadRequestException('Supervisor email already exists');
         }
 
         throw error;
@@ -213,6 +213,7 @@ export class TenantService {
 
     const roleNames: RoleName[] = [];
 
+    if (dto.supervisor) roleNames.push(RoleName.SUPERVISOR);
     if (dto.server) roleNames.push(RoleName.SERVER);
     if (dto.kitchen) roleNames.push(RoleName.KITCHEN);
     if (dto.cashier) roleNames.push(RoleName.CASHIER);

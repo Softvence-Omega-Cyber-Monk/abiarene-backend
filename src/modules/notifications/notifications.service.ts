@@ -44,8 +44,8 @@ export class NotificationsService {
     return actor.role?.toUpperCase() === RoleName.ADMIN;
   }
 
-  private withManagerRole(roles: RoleName[]) {
-    return [...new Set([...roles, RoleName.MANAGER])];
+  private withLeadershipRoles(roles: RoleName[]) {
+    return [...new Set([...roles, RoleName.MANAGER, RoleName.SUPERVISOR])];
   }
 
   private async notifyUsersByRole(input: {
@@ -139,7 +139,7 @@ export class NotificationsService {
   }) {
     await this.notifyUsersByRole({
       tenantId: input.tenantId,
-      roles: this.withManagerRole([RoleName.KITCHEN]),
+      roles: this.withLeadershipRoles([RoleName.KITCHEN]),
       type: 'ORDER_SENT_TO_KITCHEN',
       title: `New order on table ${input.tableNumber}`,
       message: `A new order was sent to kitchen for table ${input.tableNumber}.`,
@@ -160,7 +160,7 @@ export class NotificationsService {
     await Promise.all([
       this.notifyUsersByRole({
         tenantId: input.tenantId,
-        roles: this.withManagerRole([RoleName.KITCHEN]),
+        roles: this.withLeadershipRoles([RoleName.KITCHEN]),
         type: 'ORDER_CANCELLED',
         title: `Order cancelled on table ${input.tableNumber}`,
         message: `An order was cancelled for table ${input.tableNumber}.`,
@@ -195,7 +195,7 @@ export class NotificationsService {
     await Promise.all([
       this.notifyUsersByRole({
         tenantId: input.tenantId,
-        roles: this.withManagerRole([RoleName.CASHIER, RoleName.SERVER]),
+        roles: this.withLeadershipRoles([RoleName.CASHIER, RoleName.SERVER]),
         type: 'ORDER_READY',
         title: `Order ready on table ${input.tableNumber}`,
         message: `Kitchen marked order ready for table ${input.tableNumber}.`,
@@ -234,7 +234,7 @@ export class NotificationsService {
     await Promise.all([
       this.notifyUsersByRole({
         tenantId: input.tenantId,
-        roles: this.withManagerRole([RoleName.SERVER]),
+        roles: this.withLeadershipRoles([RoleName.SERVER]),
         type: 'ORDER_ARCHIVED',
         title: `Order archived on table ${input.tableNumber}`,
         message: `Order workflow was archived for table ${input.tableNumber}.`,
@@ -273,7 +273,7 @@ export class NotificationsService {
     await Promise.all([
       this.notifyUsersByRole({
         tenantId: input.tenantId,
-        roles: this.withManagerRole([]),
+        roles: this.withLeadershipRoles([]),
         type: 'PAYMENT_COMPLETED',
         title: `Payment completed on table ${input.tableNumber}`,
         message: `Cashier completed payment for table ${input.tableNumber} by ${input.paymentMethod}.`,
@@ -312,7 +312,7 @@ export class NotificationsService {
     await Promise.all([
       this.notifyUsersByRole({
         tenantId: input.tenantId,
-        roles: this.withManagerRole([]),
+        roles: this.withLeadershipRoles([]),
         type: 'SUBSCRIPTION_PAID',
         title: `Tenant subscription paid: ${input.tenantName}`,
         message: `${input.tenantName} completed subscription payment via ${input.provider}.`,

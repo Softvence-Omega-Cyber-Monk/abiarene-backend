@@ -32,20 +32,20 @@ export class CreateTenantDto {
   subscriptionFee?: number;
 
   @ApiProperty({
-    description: 'Default manager email for this tenant',
-    example: 'manager@example.com',
+    description: 'Default supervisor email for this tenant',
+    example: 'supervisor@example.com',
   })
   @IsEmail()
-  managerEmail!: string;
+  supervisorEmail!: string;
 
   @ApiProperty({
-    description: 'Default manager 4-digit PIN for this tenant',
+    description: 'Default supervisor 4-digit PIN for this tenant',
     example: '1234',
     pattern: '^\\d{4}$',
   })
   @IsString()
   @Matches(/^\d{4}$/, { message: 'PIN must be exactly 4 digits' })
-  managerPin!: string;
+  supervisorPin!: string;
 
   @ApiPropertyOptional({
     description: 'Create the server role for this tenant',
@@ -110,6 +110,14 @@ export class ListTenantRolesDto {
 }
 
 export class UpdateTenantRolesDto {
+  @ApiPropertyOptional({
+    description: 'Enable the supervisor role for this tenant',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  supervisor?: boolean;
+
   @ApiPropertyOptional({
     description: 'Enable the server role for this tenant',
     default: false,

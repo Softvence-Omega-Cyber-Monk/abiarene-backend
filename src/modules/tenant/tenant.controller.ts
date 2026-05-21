@@ -77,7 +77,7 @@ export class TenantController {
   }
 
   @Get('me')
-  @Roles('manager', 'server', 'kitchen', 'cashier')
+  @Roles('manager', 'supervisor', 'server', 'kitchen', 'cashier')
   @ApiOperation({ summary: 'Get current tenant' })
   @ApiResponse({ status: 200, description: 'Current tenant retrieved' })
   read(@CurrentUser() user: AuthUser | undefined) {
@@ -86,7 +86,7 @@ export class TenantController {
   }
 
   @Get('overview')
-  @Roles('manager')
+  @Roles('manager', 'supervisor')
   @ApiOperation({ summary: 'Get manager overview metrics for the current tenant' })
   @ApiResponse({ status: 200, description: 'Manager overview metrics retrieved' })
   overview(@CurrentUser() user: AuthUser | undefined) {
@@ -94,7 +94,7 @@ export class TenantController {
   }
 
   @Patch('me')
-  @Roles('manager')
+  @Roles('manager', 'supervisor')
   @ApiOperation({ summary: 'Update current tenant' })
   @ApiResponse({ status: 200, description: 'Current tenant updated' })
   update(
@@ -106,7 +106,7 @@ export class TenantController {
   }
 
   @Get('subscription/me')
-  @Roles('manager')
+  @Roles('manager', 'supervisor')
   @ApiOperation({ summary: 'Get current tenant subscription status and payment options' })
   @ApiResponse({ status: 200, description: 'Current tenant subscription details retrieved' })
   getSubscription(@CurrentUser() user: AuthUser | undefined) {
@@ -114,7 +114,7 @@ export class TenantController {
   }
 
   @Post('subscription/pay')
-  @Roles('manager')
+  @Roles('manager', 'supervisor')
   @ApiOperation({ summary: 'Initiate tenant subscription payment for the current manager tenant' })
   @ApiResponse({ status: 201, description: 'Tenant subscription payment initiated' })
   initiateSubscriptionPayment(
@@ -133,7 +133,7 @@ export class TenantController {
   }
 
   @Get('subscription/payments/:reference/status')
-  @Roles('manager')
+  @Roles('manager', 'supervisor')
   @ApiOperation({ summary: 'Get current tenant subscription payment status by reference' })
   @ApiResponse({ status: 200, description: 'Tenant subscription payment status retrieved' })
   getSubscriptionPaymentStatus(
@@ -147,7 +147,7 @@ export class TenantController {
   }
 
   @Get(':tenantId/roles')
-  @Roles('manager', 'admin')
+  @Roles('manager', 'supervisor', 'admin')
   @ApiOperation({ summary: 'List roles under a tenant' })
   @ApiResponse({ status: 200, description: 'Tenant roles retrieved' })
   @ApiQuery({ name: 'page', required: false, type: String, example: '1' })

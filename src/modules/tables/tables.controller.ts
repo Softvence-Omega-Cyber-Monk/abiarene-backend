@@ -49,7 +49,7 @@ export class TablesController {
   }
 
   @Post()
-  @Roles('manager')
+  @Roles('manager', 'supervisor')
   @ApiOperation({ summary: 'Create table' })
   @ApiResponse({ status: 201, description: 'Table created' })
   @ApiBody({
@@ -204,7 +204,7 @@ export class TablesController {
   }
 
   @Patch('menu')
-  @Roles('manager')
+  @Roles('manager', 'supervisor')
   @ApiOperation({ summary: 'Add new items to the shared menu for all tables under your current tenant' })
   @ApiResponse({ status: 200, description: 'New shared menu items added for all tables under your current tenant' })
   setMenu(
@@ -215,7 +215,7 @@ export class TablesController {
   }
 
   @Delete('menu/items/:itemId')
-  @Roles('manager')
+  @Roles('manager', 'supervisor')
   @ApiOperation({ summary: 'Remove one item from the shared menu under your current tenant' })
   @ApiResponse({ status: 200, description: 'Shared menu item removed for your current tenant' })
   removeMenuItem(
@@ -226,7 +226,7 @@ export class TablesController {
   }
 
   @Get(':id/cashier-summary')
-  @Roles('cashier', 'manager')
+  @Roles('cashier', 'manager', 'supervisor')
   @ApiOperation({ summary: 'Get cashier checkout summary for a table under your current tenant' })
   @ApiResponse({ status: 200, description: 'Cashier checkout summary retrieved for the selected table' })
   getCashierSummary(
@@ -237,7 +237,7 @@ export class TablesController {
   }
 
   @Post(':id/cashier-checkout')
-  @Roles('cashier', 'manager')
+  @Roles('cashier', 'manager', 'supervisor')
   @ApiOperation({ summary: 'Complete cashier checkout for a table under your current tenant' })
   @ApiResponse({ status: 200, description: 'Cashier checkout completed and the table was marked as served' })
   cashierCheckout(
@@ -266,7 +266,7 @@ export class TablesController {
   }
 
   @Patch(':id')
-  @Roles('server', 'manager')
+  @Roles('server', 'manager', 'supervisor')
   @ApiOperation({ summary: 'Update table by ID' })
   @ApiResponse({ status: 200, description: 'Table updated' })
   @ApiBody({
@@ -307,7 +307,7 @@ export class TablesController {
   }
 
   @Delete(':id')
-  @Roles('manager')
+  @Roles('manager', 'supervisor')
   @ApiOperation({ summary: 'Delete table by ID' })
   @ApiResponse({ status: 200, description: 'Table deleted' })
   delete(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {

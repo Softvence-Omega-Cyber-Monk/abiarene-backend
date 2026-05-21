@@ -17,7 +17,7 @@ export class TicketsController {
   }
 
   @Get()
-  @Roles('manager', 'server', 'kitchen')
+  @Roles('manager', 'supervisor', 'server', 'kitchen')
   @ApiOperation({ summary: 'List tickets under your current tenant' })
   @ApiResponse({ status: 200, description: 'Tickets retrieved' })
   @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
@@ -37,7 +37,7 @@ export class TicketsController {
   }
 
   @Get('kitchen-board')
-  @Roles('kitchen', 'manager')
+  @Roles('kitchen', 'manager', 'supervisor')
   @ApiOperation({ summary: 'List all active and ready kitchen tickets under your current tenant' })
   @ApiResponse({ status: 200, description: 'Kitchen board tickets retrieved for your current tenant' })
   kitchenBoard(@CurrentUser() user: AuthUser | undefined) {
@@ -45,7 +45,7 @@ export class TicketsController {
   }
 
   @Get(':id')
-  @Roles('manager', 'server', 'kitchen')
+  @Roles('manager', 'supervisor', 'server', 'kitchen')
   @ApiOperation({ summary: 'Get ticket by ID under your current tenant' })
   @ApiResponse({ status: 200, description: 'Ticket retrieved' })
   read(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
@@ -53,7 +53,7 @@ export class TicketsController {
   }
 
   @Post(':id/bump-to-ready')
-  @Roles('kitchen', 'manager')
+  @Roles('kitchen', 'manager', 'supervisor')
   @ApiOperation({ summary: 'Mark a kitchen ticket as ready under your current tenant' })
   @ApiResponse({ status: 201, description: 'Kitchen ticket marked ready and order status updated to READY' })
   bumpToReady(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
@@ -61,7 +61,7 @@ export class TicketsController {
   }
 
   @Post(':id/force-archive')
-  @Roles('server', 'manager', 'kitchen')
+  @Roles('server', 'manager', 'supervisor', 'kitchen')
   @ApiOperation({ summary: 'Force archive a kitchen ticket under your current tenant' })
   @ApiResponse({ status: 201, description: 'Kitchen ticket archived, order completed, and table released' })
   forceArchive(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {

@@ -48,7 +48,7 @@ export class UsersController {
   }
 
   @Post()
-  @Roles('manager')
+  @Roles('manager', 'supervisor')
   @ApiOperation({ summary: 'Create a user under current tenant' })
   @ApiResponse({ status: 201, description: 'User created' })
   create(
@@ -59,7 +59,7 @@ export class UsersController {
   }
 
   @Get()
-  @Roles('manager')
+  @Roles('manager', 'supervisor')
   @ApiOperation({ summary: 'List users under current tenant' })
   @ApiResponse({ status: 200, description: 'Users retrieved' })
   @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
@@ -78,7 +78,7 @@ export class UsersController {
   }
 
   @Get('me')
-  @Roles('manager', 'server', 'kitchen', 'cashier')
+  @Roles('manager', 'supervisor', 'server', 'kitchen', 'cashier')
   @ApiOperation({ summary: 'Get own profile under current tenant' })
   @ApiResponse({ status: 200, description: 'Own profile retrieved' })
   readMyProfile(@CurrentUser() user: AuthUser | undefined) {
@@ -90,7 +90,7 @@ export class UsersController {
   }
 
   @Patch('me')
-  @Roles('manager', 'server', 'kitchen', 'cashier')
+  @Roles('manager', 'supervisor', 'server', 'kitchen', 'cashier')
   @ApiOperation({ summary: 'Update own profile under current tenant' })
   @ApiResponse({ status: 200, description: 'Own profile updated' })
   updateMyProfile(
@@ -105,7 +105,7 @@ export class UsersController {
   }
 
   @Get(':id')
-  @Roles('manager')
+  @Roles('manager', 'supervisor')
   @ApiOperation({ summary: 'Get user by ID under current tenant' })
   @ApiResponse({ status: 200, description: 'User retrieved' })
   read(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
@@ -113,7 +113,7 @@ export class UsersController {
   }
 
   @Patch(':id')
-  @Roles('manager')
+  @Roles('manager', 'supervisor')
   @ApiOperation({ summary: 'Update user by ID under current tenant' })
   @ApiResponse({ status: 200, description: 'User updated' })
   update(
@@ -125,7 +125,7 @@ export class UsersController {
   }
 
   @Delete(':id')
-  @Roles('manager')
+  @Roles('manager', 'supervisor')
   @ApiOperation({ summary: 'Delete user by ID under current tenant' })
   @ApiResponse({ status: 200, description: 'User deleted' })
   delete(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
