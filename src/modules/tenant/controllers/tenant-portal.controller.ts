@@ -56,6 +56,43 @@ export class TenantPortalController {
     return this.service.overview(this.tenantId(user));
   }
 
+  @Get('daily-sales-history')
+  @Roles('manager', 'supervisor')
+  @ApiOperation({ summary: 'Get daily sales history for the current tenant' })
+  @ApiResponse({ status: 200, description: 'Daily sales history retrieved' })
+  @ApiQuery({
+    name: 'days',
+    required: false,
+    type: String,
+    example: '7',
+    description: 'Number of days to include, between 1 and 90',
+  })
+  dailySalesHistory(
+    @CurrentUser() user: AuthUser | undefined,
+    @Query('days') days?: string,
+  ) {
+    return this.service.dailySalesHistory(
+      this.tenantId(user),
+      days ? parseInt(days, 10) : undefined,
+    );
+  }
+
+  @Get('total-transactions')
+  @Roles('manager', 'supervisor')
+  @ApiOperation({ summary: 'Get total transaction summary for the current tenant' })
+  @ApiResponse({ status: 200, description: 'Transaction summary retrieved' })
+  totalTransactions(@CurrentUser() user: AuthUser | undefined) {
+    return this.service.totalTransactions(this.tenantId(user));
+  }
+
+  @Get('active-discounts')
+  @Roles('manager', 'supervisor')
+  @ApiOperation({ summary: 'Get active discount or voucher summary for the current tenant' })
+  @ApiResponse({ status: 200, description: 'Active discount summary retrieved' })
+  activeDiscounts(@CurrentUser() user: AuthUser | undefined) {
+    return this.service.activeDiscounts(this.tenantId(user));
+  }
+
   @Patch('me')
   @Roles('manager', 'supervisor')
   @ApiOperation({ summary: 'Update current tenant' })

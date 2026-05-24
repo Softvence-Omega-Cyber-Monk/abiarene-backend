@@ -37,6 +37,10 @@ export class TenantService {
       },
     ];
 
+    if (dto.manager) {
+      roleCreates.push({ name: RoleName.MANAGER, isActive: true });
+    }
+
     if (dto.server) {
       roleCreates.push({ name: RoleName.SERVER, isActive: true });
     }
@@ -213,6 +217,7 @@ export class TenantService {
 
     const roleNames: RoleName[] = [];
 
+    if (dto.manager) roleNames.push(RoleName.MANAGER);
     if (dto.supervisor) roleNames.push(RoleName.SUPERVISOR);
     if (dto.server) roleNames.push(RoleName.SERVER);
     if (dto.kitchen) roleNames.push(RoleName.KITCHEN);
@@ -340,6 +345,148 @@ export class TenantService {
         todayStart,
         previousDayStart,
       },
+    };
+  }
+
+  async getDailySalesHistory(tenantId: string, days = 7) {
+    await this.ensureTenantExists(tenantId);
+
+    const safeDays = Math.max(1, Math.min(days, 90));
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const rangeStart = new Date(todayStart);
+    rangeStart.setDate(rangeStart.getDate() - (safeDays - 1));
+
+    const payments = await this.prisma.payment.findMany({
+      where: {
+        tenantId,
+        status: 'COMPLETED',
+        createdAt: {
+          gte: rangeStart,
+        },
+      },
+      select: {
+        amount: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const history = Array.from({ length: safeDays }, (_, index) => {
+      const date = new Date(rangeStart);
+      date.setDate(rangeStart.getDate() + index);
+      const key = date.toISOString().slice(0, 10);
+
+      return {
+        date: key,
+        sales: 0,
+        transactionCount: 0,
+      };
+    });
+
+    const historyMap = new Map(history.map((item) => [item.date, item]));
+
+    for (const payment of payments) {
+      const key = payment.createdAt.toISOString().slice(0, 10);
+      const entry = historyMap.get(key);
+      if (!entry) {
+        continue;
+      }
+
+      entry.sales = this.toMoney(entry.sales + payment.amount);
+      entry.transactionCount += 1;
+    }
+
+    return {
+      history,
+      meta: {
+        days: safeDays,
+        currency: 'USD',
+        rangeStart,
+        rangeEnd: new Date(),
+      },
+    };
+  }
+
+  async getTotalTransactionsSummary(tenantId: string) {
+    await this.ensureTenantExists(tenantId);
+
+    const now = new Date();
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+
+    const tomorrowStart = new Date(todayStart);
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+
+    const previousDayStart = new Date(todayStart);
+    previousDayStart.setDate(previousDayStart.getDate() - 1);
+
+    const [total, today, previousDay] = await Promise.all([
+      this.prisma.payment.count({
+        where: {
+          tenantId,
+          status: 'COMPLETED',
+        },
+      }),
+      this.prisma.payment.count({
+        where: {
+          tenantId,
+          status: 'COMPLETED',
+          createdAt: {
+            gte: todayStart,
+            lt: tomorrowStart,
+          },
+        },
+      }),
+      this.prisma.payment.count({
+        where: {
+          tenantId,
+          status: 'COMPLETED',
+          createdAt: {
+            gte: previousDayStart,
+            lt: todayStart,
+          },
+        },
+      }),
+    ]);
+
+    return {
+      total,
+      today,
+      previousDay,
+      changePercentage: this.toPercentChange(today, previousDay),
+      meta: {
+        comparedAt: now,
+        todayStart,
+        previousDayStart,
+      },
+    };
+  }
+
+  async getActiveDiscountSummary(tenantId: string) {
+    await this.ensureTenantExists(tenantId);
+
+    const discounts = await this.prisma.discount.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        minimumPrice: true,
+        offPrice: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      totalActive: discounts.length,
+      discounts,
     };
   }
 

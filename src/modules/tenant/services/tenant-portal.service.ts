@@ -22,6 +22,18 @@ export class TenantPortalService {
     return this.tenantService.getManagerOverview(tenantId);
   }
 
+  dailySalesHistory(tenantId: string, days?: number) {
+    return this.tenantService.getDailySalesHistory(tenantId, days);
+  }
+
+  totalTransactions(tenantId: string) {
+    return this.tenantService.getTotalTransactionsSummary(tenantId);
+  }
+
+  activeDiscounts(tenantId: string) {
+    return this.tenantService.getActiveDiscountSummary(tenantId);
+  }
+
   update(tenantId: string, dto: UpdateTenantDto) {
     return this.tenantService.update(tenantId, tenantId, dto);
   }

@@ -16,6 +16,7 @@ export enum TenantRoleName {
 }
 
 export enum OptionalTenantRoleName {
+  MANAGER = RoleName.MANAGER,
   SUPERVISOR = RoleName.SUPERVISOR,
   SERVER = RoleName.SERVER,
   KITCHEN = RoleName.KITCHEN,
@@ -23,6 +24,7 @@ export enum OptionalTenantRoleName {
 }
 
 export enum StaffRoleName {
+  MANAGER = RoleName.MANAGER,
   SUPERVISOR = RoleName.SUPERVISOR,
   SERVER = RoleName.SERVER,
   KITCHEN = RoleName.KITCHEN,
