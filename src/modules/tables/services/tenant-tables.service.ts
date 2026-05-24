@@ -1,18 +1,18 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PaymentMethod, Prisma } from '@prisma/client';
-import { NotificationsService } from '../notifications/notifications.service.js';
-import { PrismaService } from '../../prisma/prisma.service.js';
+import { buildPaginatedResponse } from '../../../common/utils/pagination.js';
+import { PrismaService } from '../../../prisma/prisma.service.js';
+import { NotificationsService } from '../../notifications/notifications.service.js';
 import {
   CashierCheckoutDto,
   CreateTablesDto,
   ListTablesDto,
   SetTableItemsDto,
   UpdateTablesDto,
-} from './tables.dto.js';
-import { buildPaginatedResponse } from '../../common/utils/pagination.js';
+} from '../tables.dto.js';
 
 @Injectable()
-export class TablesService {
+export class TenantTablesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,

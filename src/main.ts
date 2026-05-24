@@ -156,6 +156,26 @@ const swaggerTagFilterScript = `
 })();
 `;
 
+const swaggerStickyHeaderCss = `
+  html {
+    scroll-padding-top: 88px;
+  }
+
+  .swagger-ui .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  }
+
+  .swagger-ui .information-container,
+  .swagger-ui .scheme-container,
+  .swagger-ui .opblock-tag,
+  .swagger-ui .opblock {
+    scroll-margin-top: 96px;
+  }
+`;
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const port = parseInt(process.env.PORT ?? '3000', 10);
@@ -200,6 +220,7 @@ async function bootstrap() {
       deepLinking: true,
       persistAuthorization: true,
     },
+    customCss: swaggerStickyHeaderCss,
     customJsStr: swaggerTagFilterScript,
   });
 

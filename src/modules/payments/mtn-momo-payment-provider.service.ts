@@ -183,6 +183,16 @@ export class MtnMomoPaymentProviderService {
     };
 
     if (!response.ok) {
+      if (response.status === 404) {
+        return {
+          status: 'NOT_FOUND',
+          reason: payload.message ?? 'Requested resource was not found.',
+          financialTransactionId: payload.financialTransactionId,
+          externalId: payload.externalId,
+          payer: payload.payer,
+        };
+      }
+
       throw new InternalServerErrorException(
         payload.message ?? 'MTN MoMo payment status request failed',
       );

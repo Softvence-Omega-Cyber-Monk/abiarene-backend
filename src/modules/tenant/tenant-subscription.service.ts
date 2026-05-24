@@ -409,7 +409,9 @@ export class TenantSubscriptionService {
       }
 
       if (
-        ['FAILED', 'REJECTED', 'TIMEOUT'].includes(requestToPay.status ?? '') &&
+        ['FAILED', 'REJECTED', 'TIMEOUT', 'EXPIRED', 'NOT_FOUND'].includes(
+          requestToPay.status ?? '',
+        ) &&
         payment.status === 'PENDING'
       ) {
         await this.prisma.subscriptionPayment.update({
