@@ -32,16 +32,18 @@ export class CreateUsersDto {
   @IsEmail()
   email!: string;
 
-  @ApiProperty({
-    description: '4-digit PIN',
+  @ApiPropertyOptional({
+    description: 'Optional 4-digit PIN',
     minLength: 4,
     maxLength: 4,
     pattern: '^\\d{4}$',
     example: '1234',
   })
+  @IsOptional()
   @IsString()
+  @Length(4, 4)
   @Matches(/^\d{4}$/, { message: 'PIN must be exactly 4 digits' })
-  pin!: string;
+  pin?: string;
 
   @ApiProperty({
     description: 'Role',
@@ -84,7 +86,7 @@ export class UpdateMyProfileDto {
   email?: string;
 
   @ApiPropertyOptional({
-    description: '4-digit PIN',
+    description: 'Optional 4-digit PIN',
     minLength: 4,
     maxLength: 4,
     pattern: '^\\d{4}$',
@@ -92,6 +94,7 @@ export class UpdateMyProfileDto {
   })
   @IsOptional()
   @IsString()
+  @Length(4, 4)
   @Matches(/^\d{4}$/, { message: 'PIN must be exactly 4 digits' })
   pin?: string;
 }

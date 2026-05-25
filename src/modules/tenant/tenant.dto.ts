@@ -2,10 +2,8 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
-  IsEmail,
   IsIn,
   IsInt,
-  Matches,
   IsNumber,
   IsOptional,
   IsString,
@@ -30,22 +28,6 @@ export class CreateTenantDto {
   @IsOptional()
   @IsNumber()
   subscriptionFee?: number;
-
-  @ApiProperty({
-    description: 'Default supervisor email for this tenant',
-    example: 'supervisor@example.com',
-  })
-  @IsEmail()
-  supervisorEmail!: string;
-
-  @ApiProperty({
-    description: 'Default supervisor 4-digit PIN for this tenant',
-    example: '1234',
-    pattern: '^\\d{4}$',
-  })
-  @IsString()
-  @Matches(/^\d{4}$/, { message: 'PIN must be exactly 4 digits' })
-  supervisorPin!: string;
 
   @ApiPropertyOptional({
     description: 'Create the manager role for this tenant',

@@ -5,7 +5,6 @@ import {
   Get,
   Param,
   Patch,
-  Post,
   Query,
 } from '@nestjs/common';
 import {
@@ -19,7 +18,6 @@ import { RoleName } from '../../../common/constants/role-name.js';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator.js';
 import { AuthUser } from '../../../common/interfaces/auth-user.interface.js';
 import {
-  CreateTenantDto,
   ListTenantDto,
   ListTenantRolesDto,
   UpdateTenantRolesDto,
@@ -32,13 +30,6 @@ import { AdminTenantService } from '../services/admin-tenant.service.js';
 @Controller('tenant')
 export class AdminTenantController {
   constructor(private readonly service: AdminTenantService) {}
-
-  @Post('create')
-  @ApiOperation({ summary: 'Create tenant' })
-  @ApiResponse({ status: 201, description: 'Tenant created' })
-  create(@Body() dto: CreateTenantDto) {
-    return this.service.create(dto);
-  }
 
   @Get('all')
   @ApiOperation({ summary: 'List all tenants for admin' })

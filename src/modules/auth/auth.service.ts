@@ -1,8 +1,12 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { RoleName } from '../../common/constants/role-name.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { LoginDto } from './auth.dto.js';
+import { LoginDto, RegisterSupervisorDto } from './auth.dto.js';
 
 @Injectable()
 export class AuthService {
@@ -10,6 +14,33 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
   ) {}
+
+  async registerSupervisor(dto: RegisterSupervisorDto) {
+    await this.ensureEmailAvailable(dto.email);
+
+    const user = await this.prisma.user.create({
+      data: {
+        name: dto.name,
+        email: dto.email,
+        pin: dto.pin,
+        pendingRole: RoleName.SUPERVISOR,
+        status: 'ACTIVE',
+      },
+    });
+
+    const payload = {
+      sub: user.id,
+      name: user.name,
+      email: user.email,
+      role: RoleName.SUPERVISOR,
+      tokenVersion: user.tokenVersion,
+    };
+
+    return {
+      accessToken: await this.jwtService.signAsync(payload),
+      user: payload,
+    };
+  }
 
   async getTenants() {
     return this.prisma.tenant.findMany({
@@ -52,12 +83,13 @@ export class AuthService {
       };
     }
 
-    const user = (await this.prisma.user.findFirst({
+    const user = await this.prisma.user.findFirst({
       where: { pin: dto.pin, email: dto.email, status: 'ACTIVE' },
       include: { role: true },
-    })) as any;
+    });
 
-    if (!user || !user.role?.isActive) {
+    const role = user?.role?.isActive ? user.role.name : user?.pendingRole;
+    if (!user || !role) {
       throw new UnauthorizedException('Invalid email/PIN or disabled role');
     }
 
@@ -65,8 +97,8 @@ export class AuthService {
       sub: user.id,
       name: user.name,
       email: user.email,
-      tenantId: user.tenantId,
-      role: user.role.name,
+      tenantId: user.tenantId ?? undefined,
+      role,
       tokenVersion: user.tokenVersion,
     };
 
@@ -96,5 +128,22 @@ export class AuthService {
     });
 
     return { message: 'Logged out successfully' };
+  }
+
+  private async ensureEmailAvailable(email: string) {
+    const [existingUser, existingAdmin] = await Promise.all([
+      this.prisma.user.findFirst({
+        where: { email },
+        select: { id: true },
+      }),
+      this.prisma.admin.findFirst({
+        where: { email },
+        select: { id: true },
+      }),
+    ]);
+
+    if (existingUser || existingAdmin) {
+      throw new BadRequestException('Email already exists');
+    }
   }
 }

@@ -40,9 +40,4 @@ export class PaymentsService {
   delete(tenantId: string, id: string) {
     return this.prisma.payment.deleteMany({ where: { tenantId, id } });
   }
-
-  async completePayment(tenantId: string, id: string) {
-    await this.prisma.payment.updateMany({ where: { tenantId, id }, data: { status: 'COMPLETED' } });
-    return this.read(tenantId, id);
-  }
 }

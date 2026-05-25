@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
+  CreateTenantDto,
   InitiateSubscriptionPaymentDto,
   ListTenantRolesDto,
   UpdateTenantDto,
@@ -16,6 +17,10 @@ export class TenantPortalService {
 
   read(tenantId: string) {
     return this.tenantService.read(tenantId, tenantId);
+  }
+
+  createForSupervisor(userId: string, dto: CreateTenantDto) {
+    return this.tenantService.createForSupervisor(userId, dto);
   }
 
   overview(tenantId: string) {

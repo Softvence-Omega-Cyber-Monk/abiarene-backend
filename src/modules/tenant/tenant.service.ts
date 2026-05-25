@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import {
@@ -29,7 +34,7 @@ export class TenantService {
     return this.toMoney(((current - previous) / previous) * 100);
   }
 
-  create(dto: CreateTenantDto) {
+  createForSupervisor(userId: string, dto: CreateTenantDto) {
     const roleCreates: Prisma.RoleCreateWithoutTenantInput[] = [
       {
         name: DEFAULT_TENANT_ROLE,
@@ -53,90 +58,73 @@ export class TenantService {
       roleCreates.push({ name: RoleName.CASHIER, isActive: true });
     }
 
-    return this.prisma.user
-      .findFirst({
-        where: { email: dto.supervisorEmail },
-        select: { id: true },
-      })
-      .then(async (existingSupervisor) => {
-        if (existingSupervisor) {
-          throw new BadRequestException('Supervisor email already exists');
-        }
-
-        const tenant = await this.prisma.tenant.create({
-          data: {
-            name: dto.name,
-            industry: dto.industry ?? 'restaurant',
-            subscriptionFee: dto.subscriptionFee ?? 0,
-            status: 'ACTIVE',
-            subscriptionStatus: 'PENDING',
-            lastSync: new Date(),
-            roles: {
-              create: roleCreates,
-            },
-          },
-          include: {
-            roles: {
-              orderBy: { createdAt: 'asc' },
-            },
-          },
-        });
-
-        const supervisorRole = tenant.roles.find(
-          (role) => role.name === DEFAULT_TENANT_ROLE,
-        );
-
-        if (!supervisorRole) {
-          await this.prisma.tenant.delete({ where: { id: tenant.id } });
-          throw new BadRequestException('Default supervisor role was not created');
-        }
-
-        try {
-          const supervisor = await this.prisma.user.create({
-            data: {
-              name: `${dto.name} Supervisor`,
-              email: dto.supervisorEmail,
-              pin: dto.supervisorPin,
-              roleId: supervisorRole.id,
-              tenantId: tenant.id,
-              status: 'ACTIVE',
-            },
-            include: {
-              role: true,
-            },
-          });
-
-          return {
-            ...tenant,
-            supervisor,
-          };
-        } catch (error) {
-          await this.prisma.tenant.delete({ where: { id: tenant.id } });
-
-          if (
-            error instanceof Prisma.PrismaClientKnownRequestError &&
-            error.code === 'P2002'
-          ) {
-            throw new BadRequestException('Supervisor email already exists');
-          }
-
-          throw error;
-        }
-      })
-      .catch((error) => {
-        if (error instanceof BadRequestException) {
-          throw error;
-        }
-
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === 'P2002'
-        ) {
-          throw new BadRequestException('Supervisor email already exists');
-        }
-
-        throw error;
+    return this.prisma.$transaction(async (tx) => {
+      const supervisor = await tx.user.findFirst({
+        where: { id: userId, status: 'ACTIVE' },
+        include: { role: true },
       });
+
+      if (!supervisor) {
+        throw new NotFoundException('Supervisor account not found');
+      }
+
+      const resolvedRole = supervisor.role?.name ?? supervisor.pendingRole;
+      if (resolvedRole !== RoleName.SUPERVISOR) {
+        throw new ForbiddenException(
+          'Only a supervisor account can create a tenant',
+        );
+      }
+
+      if (supervisor.tenantId) {
+        throw new BadRequestException(
+          'This supervisor account is already assigned to a tenant',
+        );
+      }
+
+      const tenant = await tx.tenant.create({
+        data: {
+          name: dto.name,
+          industry: dto.industry ?? 'restaurant',
+          subscriptionFee: dto.subscriptionFee ?? 0,
+          status: 'ACTIVE',
+          subscriptionStatus: 'PENDING',
+          lastSync: new Date(),
+          roles: {
+            create: roleCreates,
+          },
+        },
+        include: {
+          roles: {
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+      });
+
+      const supervisorRole = tenant.roles.find(
+        (role) => role.name === DEFAULT_TENANT_ROLE,
+      );
+
+      if (!supervisorRole) {
+        throw new BadRequestException('Default supervisor role was not created');
+      }
+
+      const updatedSupervisor = await tx.user.update({
+        where: { id: supervisor.id },
+        data: {
+          roleId: supervisorRole.id,
+          tenantId: tenant.id,
+          pendingRole: null,
+        },
+        include: {
+          role: true,
+        },
+      });
+
+      return {
+        ...tenant,
+        supervisor: updatedSupervisor,
+      };
+    });
   }
 
   async listAll(dto: ListTenantDto) {

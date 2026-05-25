@@ -17,10 +17,12 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { RoleName } from '../../../common/constants/role-name.js';
+import { AllowWithoutTenant } from '../../../common/decorators/allow-without-tenant.decorator.js';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../../common/decorators/roles.decorator.js';
 import { AuthUser } from '../../../common/interfaces/auth-user.interface.js';
 import {
+  CreateTenantDto,
   InitiateSubscriptionPaymentDto,
   ListTenantRolesDto,
   UpdateTenantDto,
@@ -38,6 +40,22 @@ export class TenantPortalController {
       throw new UnauthorizedException('Missing tenant context');
     }
     return user.tenantId;
+  }
+
+  @Post('create')
+  @AllowWithoutTenant()
+  @Roles('supervisor')
+  @ApiOperation({ summary: 'Create tenant under the current supervisor account' })
+  @ApiResponse({ status: 201, description: 'Tenant created for the supervisor' })
+  create(
+    @CurrentUser() user: AuthUser | undefined,
+    @Body() dto: CreateTenantDto,
+  ) {
+    if (!user?.sub) {
+      throw new UnauthorizedException('Missing user context');
+    }
+
+    return this.service.createForSupervisor(user.sub, dto);
   }
 
   @Get('me')

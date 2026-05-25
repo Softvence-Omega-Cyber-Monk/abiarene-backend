@@ -11,11 +11,11 @@ import { OrdersService } from './orders.service.js';
 @Controller('orders')
 export class OrdersController {
   constructor(private readonly service: OrdersService) {}
-  private me(user?: AuthUser) {
+  private me(user?: AuthUser): AuthUser & { tenantId: string; sub: string } {
     if (!user?.tenantId || !user?.sub) {
       throw new UnauthorizedException('Missing user context');
     }
-    return user;
+    return user as AuthUser & { tenantId: string; sub: string };
   }
 
   @Post()
@@ -45,7 +45,7 @@ export class OrdersController {
   }
 
   @Get('history')
-  @Roles('manager', 'supervisor', 'cashier')
+  @Roles('manager', 'supervisor', 'cashier', 'server', 'kitchen')
   @ApiOperation({ summary: 'List paid completed order history under your current tenant' })
   @ApiResponse({ status: 200, description: 'Paid completed order history retrieved' })
   @ApiQuery({ name: 'page', required: false, type: String, example: '1' })

@@ -22,7 +22,9 @@ import { Roles } from '../../common/decorators/roles.decorator.js';
 import { AuthUser } from '../../common/interfaces/auth-user.interface.js';
 import {
   CreateInventoryDto,
+  ListInventoryDeletionRequestsDto,
   ListInventoryDto,
+  RejectInventoryDeletionRequestDto,
   UpdateInventoryDto,
 } from './inventory.dto.js';
 import { InventoryService } from './inventory.service.js';
@@ -37,6 +39,14 @@ export class InventoryController {
     if (!user?.tenantId)
       throw new UnauthorizedException('Missing tenant context');
     return user.tenantId;
+  }
+
+  private me(user?: AuthUser): AuthUser & { tenantId: string; sub: string; role: string } {
+    if (!user?.tenantId || !user?.sub || !user?.role) {
+      throw new UnauthorizedException('Missing user context');
+    }
+
+    return user as AuthUser & { tenantId: string; sub: string; role: string };
   }
 
   @Post()
@@ -89,6 +99,56 @@ export class InventoryController {
     return this.service.readByInventory(this.tenantId(user), inventory);
   }
 
+  @Get('delete-requests')
+  @Roles('manager', 'supervisor', 'admin')
+  @ApiOperation({ summary: 'List inventory deletion requests under your current tenant' })
+  @ApiResponse({ status: 200, description: 'Inventory deletion requests retrieved' })
+  @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
+  @ApiQuery({ name: 'limit', required: false, type: String, example: '20' })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    type: String,
+    enum: ['PENDING', 'APPROVED', 'REJECTED'],
+    example: 'PENDING',
+  })
+  listDeletionRequests(
+    @CurrentUser() user: AuthUser | undefined,
+    @Query() dto: ListInventoryDeletionRequestsDto,
+  ) {
+    return this.service.listDeletionRequests(this.tenantId(user), dto);
+  }
+
+  @Post('delete-requests/:requestId/approve')
+  @Roles('supervisor', 'admin')
+  @ApiOperation({ summary: 'Approve a pending inventory deletion request' })
+  @ApiResponse({ status: 201, description: 'Inventory deletion request approved and item deleted' })
+  approveDeletionRequest(
+    @CurrentUser() user: AuthUser | undefined,
+    @Param('requestId') requestId: string,
+  ) {
+    const me = this.me(user);
+    return this.service.approveDeletionRequest(me.tenantId, requestId, me.sub);
+  }
+
+  @Post('delete-requests/:requestId/reject')
+  @Roles('supervisor', 'admin')
+  @ApiOperation({ summary: 'Reject a pending inventory deletion request' })
+  @ApiResponse({ status: 201, description: 'Inventory deletion request rejected' })
+  rejectDeletionRequest(
+    @CurrentUser() user: AuthUser | undefined,
+    @Param('requestId') requestId: string,
+    @Body() dto: RejectInventoryDeletionRequestDto,
+  ) {
+    const me = this.me(user);
+    return this.service.rejectDeletionRequest(
+      me.tenantId,
+      requestId,
+      me.sub,
+      dto.reason,
+    );
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get inventory item by ID' })
   @ApiResponse({ status: 200, description: 'Inventory item retrieved' })
@@ -110,9 +170,10 @@ export class InventoryController {
 
   @Delete(':id')
   @Roles('manager', 'supervisor', 'admin')
-  @ApiOperation({ summary: 'Delete inventory item by ID' })
-  @ApiResponse({ status: 200, description: 'Inventory item deleted' })
+  @ApiOperation({ summary: 'Delete inventory item by ID or request supervisor approval' })
+  @ApiResponse({ status: 200, description: 'Inventory item deleted or deletion approval requested' })
   delete(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
-    return this.service.delete(this.tenantId(user), id);
+    const me = this.me(user);
+    return this.service.delete(me.tenantId, id, me);
   }
 }

@@ -158,13 +158,21 @@ const swaggerTagFilterScript = `
 
 const swaggerStickyHeaderCss = `
   html {
-    scroll-padding-top: 88px;
+    scroll-padding-top: 132px;
   }
 
   .swagger-ui .topbar {
     position: sticky;
     top: 0;
+    z-index: 1001;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  }
+
+  .swagger-ui .scheme-container {
+    position: sticky;
+    top: 44px;
     z-index: 1000;
+    background: #ffffff;
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
   }
 
@@ -172,7 +180,7 @@ const swaggerStickyHeaderCss = `
   .swagger-ui .scheme-container,
   .swagger-ui .opblock-tag,
   .swagger-ui .opblock {
-    scroll-margin-top: 96px;
+    scroll-margin-top: 140px;
   }
 `;
 

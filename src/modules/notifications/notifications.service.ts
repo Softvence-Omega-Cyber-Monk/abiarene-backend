@@ -342,6 +342,33 @@ export class NotificationsService {
     ]);
   }
 
+  async notifyInventoryDeletionApprovalRequested(input: {
+    tenantId: string;
+    productId: string;
+    productName: string;
+    productSku?: string | null;
+    requestedByUserId: string;
+    requestedByName: string;
+    requestId: string;
+  }) {
+    await this.notifyUsersByRole({
+      tenantId: input.tenantId,
+      roles: [RoleName.SUPERVISOR],
+      type: 'GENERIC',
+      title: `Inventory deletion approval needed`,
+      message: `${input.requestedByName} requested deletion for ${input.productName}.`,
+      payload: {
+        requestId: input.requestId,
+        productId: input.productId,
+        productName: input.productName,
+        productSku: input.productSku ?? null,
+        requestedByUserId: input.requestedByUserId,
+        requestedByName: input.requestedByName,
+        action: 'INVENTORY_DELETION_APPROVAL_REQUESTED',
+      },
+    });
+  }
+
   async list(actor: NotificationActor, dto: ListNotificationsDto) {
     const where = this.isAdmin(actor)
       ? { adminId: actor.sub, isRead: dto.isRead }

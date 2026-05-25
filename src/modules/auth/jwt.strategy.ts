@@ -48,34 +48,41 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       };
     }
 
-    // Handle user tokens
-    if (!payload.tenantId) {
-      throw new UnauthorizedException('Missing tenant ID in token');
-    }
-
-    const user = (await this.prisma.user.findFirst({
+    const user = await this.prisma.user.findFirst({
       where: {
         id: payload.sub,
-        tenantId: payload.tenantId,
         status: 'ACTIVE',
       },
       include: { role: true },
-    })) as any;
+    });
 
     if (!user) {
       throw new UnauthorizedException('Invalid token subject');
+    }
+
+    if (payload.tenantId && user.tenantId !== payload.tenantId) {
+      throw new UnauthorizedException('Invalid tenant scope in token');
     }
 
     if ((payload.tokenVersion ?? 0) !== user.tokenVersion) {
       throw new UnauthorizedException('Token has been revoked');
     }
 
+    const role = user.role?.isActive ? user.role.name : user.pendingRole;
+    if (!role) {
+      throw new UnauthorizedException('User role not found or inactive');
+    }
+
+    if (payload.role?.toUpperCase() !== role) {
+      throw new UnauthorizedException('Invalid role in token');
+    }
+
     return {
       sub: user.id,
       name: user.name,
       email: user.email,
-      tenantId: user.tenantId,
-      role: user.role.name,
+      tenantId: user.tenantId ?? undefined,
+      role,
       tokenVersion: user.tokenVersion,
     };
   }

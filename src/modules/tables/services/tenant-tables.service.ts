@@ -355,8 +355,7 @@ export class TenantTablesService {
     await this.prisma.table.updateMany({
       where: { tenantId, id: table.id },
       data: {
-        status: 'OCCUPIED',
-        served: true,
+        status: 'AVAILABLE',
       },
     });
 

@@ -9,7 +9,12 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { Public } from '../../common/decorators/public.decorator.js';
 import type { AuthUser } from '../../common/interfaces/auth-user.interface.js';
 import { AuthService } from './auth.service.js';
-import { LoginDto, TenantResponse, UserResponse } from './auth.dto.js';
+import {
+  LoginDto,
+  RegisterSupervisorDto,
+  TenantResponse,
+  UserResponse,
+} from './auth.dto.js';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -47,6 +52,15 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Invalid email or PIN' })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  @Post('register')
+  @Public()
+  @ApiOperation({ summary: 'Create a supervisor account before tenant onboarding' })
+  @ApiResponse({ status: 201, description: 'Supervisor account created' })
+  @ApiResponse({ status: 400, description: 'Email already exists' })
+  register(@Body() dto: RegisterSupervisorDto) {
+    return this.authService.registerSupervisor(dto);
   }
 
   @Post('logout')

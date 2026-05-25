@@ -119,6 +119,8 @@ export class OrdersService {
       id: string;
       menuItemId: string;
       quantity: number;
+      notes: string | null;
+      selectedOptions: string[];
       menuItem: {
         id: string;
         name: string;
@@ -126,6 +128,13 @@ export class OrdersService {
         price: number;
         image: string | null;
       };
+    }[];
+    tickets: {
+      id: string;
+      ticketCode: string;
+      status: string;
+      createdAt: Date;
+      updatedAt: Date;
     }[];
     payments: {
       id: string;
@@ -135,6 +144,8 @@ export class OrdersService {
       createdAt: Date;
     }[];
   }) {
+    const latestTicket = order.tickets[0] ?? null;
+
     return {
       id: order.id,
       tenantId: order.tenantId,
@@ -148,9 +159,12 @@ export class OrdersService {
         id: item.id,
         itemId: item.menuItemId,
         quantity: item.quantity,
+        notes: item.notes,
+        selectedOptions: item.selectedOptions,
         item: item.menuItem,
         lineTotal: item.quantity * item.menuItem.price,
       })),
+      ticket: latestTicket,
       payments: order.payments,
       meta: {
         itemCount: order.items.length,
@@ -367,6 +381,8 @@ export class OrdersService {
               id: true,
               menuItemId: true,
               quantity: true,
+              notes: true,
+              selectedOptions: true,
               menuItem: {
                 select: {
                   id: true,
@@ -377,6 +393,17 @@ export class OrdersService {
                 },
               },
             },
+          },
+          tickets: {
+            select: {
+              id: true,
+              ticketCode: true,
+              status: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+            take: 1,
+            orderBy: { createdAt: 'desc' },
           },
           payments: {
             where: {

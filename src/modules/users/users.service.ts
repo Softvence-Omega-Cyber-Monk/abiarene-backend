@@ -16,11 +16,7 @@ export class UsersService {
   async createForTenant(tenantId: string, dto: CreateUsersDto) {
     await this.ensureEmailAvailable(dto.email);
 
-    const role = await this.validateRoleAndPin(
-      tenantId,
-      dto.role,
-      dto.pin,
-    );
+    const role = await this.validateRole(tenantId, dto.role);
 
     return this.prisma.user.create({
       data: {
@@ -79,11 +75,13 @@ export class UsersService {
       return { count: 0 };
     }
 
-    const role = await this.validateRoleAndPin(
+    if (!existingUser.role?.name) {
+      throw new BadRequestException('User role is not assigned');
+    }
+
+    const role = await this.validateRole(
       tenantId,
       dto.role ?? (existingUser.role.name as StaffRoleName),
-      dto.pin ?? existingUser.pin,
-      id,
     );
 
     await this.ensureEmailAvailable(dto.email ?? existingUser.email, id);
@@ -143,12 +141,7 @@ export class UsersService {
     return this.prisma.user.deleteMany({ where: { id, tenantId } });
   }
 
-  private async validateRoleAndPin(
-    tenantId: string,
-    roleName: StaffRoleName,
-    pin: string,
-    userIdToExclude?: string,
-  ) {
+  private async validateRole(tenantId: string, roleName: StaffRoleName) {
     const role = await this.prisma.role.findFirst({
       where: { name: roleName, tenantId, isActive: true },
       select: { id: true },
@@ -158,19 +151,6 @@ export class UsersService {
       throw new BadRequestException(
         'Role not found for this tenant or inactive',
       );
-    }
-
-    const existingPinUser = await this.prisma.user.findFirst({
-      where: {
-        roleId: role.id,
-        pin,
-        id: userIdToExclude ? { not: userIdToExclude } : undefined,
-      },
-      select: { id: true },
-    });
-
-    if (existingPinUser) {
-      throw new BadRequestException('PIN already exists for this role');
     }
 
     return role;

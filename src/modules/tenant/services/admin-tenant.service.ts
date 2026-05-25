@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import {
-  CreateTenantDto,
   ListTenantDto,
   ListTenantRolesDto,
   UpdateTenantRolesDto,
@@ -11,10 +10,6 @@ import { TenantService } from '../tenant.service.js';
 @Injectable()
 export class AdminTenantService {
   constructor(private readonly tenantService: TenantService) {}
-
-  create(dto: CreateTenantDto) {
-    return this.tenantService.create(dto);
-  }
 
   listAll(dto: ListTenantDto) {
     return this.tenantService.listAll(dto);

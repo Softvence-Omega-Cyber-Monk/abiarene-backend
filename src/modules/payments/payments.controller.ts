@@ -62,11 +62,4 @@ export class PaymentsController {
   delete(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
     return this.service.delete(this.tenantId(user), id);
   }
-
-  @Post(':id/complete-payment')
-  @ApiOperation({ summary: 'Complete payment' })
-  @ApiResponse({ status: 201, description: 'Payment completed' })
-  completePayment(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
-    return this.service.completePayment(this.tenantId(user), id);
-  }
 }

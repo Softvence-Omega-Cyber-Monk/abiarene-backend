@@ -102,6 +102,12 @@ enum NotificationType {
   GENERIC
 }
 
+enum InventoryDeletionRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 // ─── Tenant ─────────────────────────────────────────────────────
 
 model Tenant {
@@ -130,6 +136,7 @@ model Tenant {
   discounts       Discount[]
   supportTickets  SupportTicket[]
   notifications   Notification[]
+  inventoryDeletionRequests InventoryDeletionRequest[]
 
   @@map("tenants")
 }
@@ -172,23 +179,25 @@ model User {
   name      String
   image     String?
   email     String
-  pin       String
+  pin       String?
   tokenVersion Int     @default(0)
-  roleId    String
-  tenantId  String
+  pendingRole RoleName?
+  roleId    String?
+  tenantId  String?
   status    UserStatus @default(ACTIVE)
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
-  role      Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role      Role?      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  tenant    Tenant?    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   orders    Order[]    @relation("CreatedByUser")
   subscriptionPayments SubscriptionPayment[]
   notifications Notification[]
+  requestedInventoryDeletionRequests InventoryDeletionRequest[] @relation("RequestedInventoryDeletionRequests")
+  approvedInventoryDeletionRequests InventoryDeletionRequest[] @relation("ApprovedInventoryDeletionRequests")
 
   @@unique([email])
   @@index([tenantId])
-  @@unique([roleId, pin])
   @@map("users")
 }
 
@@ -229,6 +238,27 @@ model Product {
   @@index([tenantId])
   @@unique([sku, tenantId])
   @@map("products")
+}
+
+model InventoryDeletionRequest {
+  id          String   @id @default(uuid())
+  tenantId    String
+  productId   String
+  productName String
+  productSku  String?
+  requestedByUserId String
+  approvedByUserId String?
+  status      InventoryDeletionRequestStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  requestedBy User     @relation("RequestedInventoryDeletionRequests", fields: [requestedByUserId], references: [id], onDelete: Cascade)
+  approvedBy  User?    @relation("ApprovedInventoryDeletionRequests", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status, createdAt])
+  @@unique([tenantId, productId, status])
+  @@map("inventory_deletion_requests")
 }
 
 // ─── Stock Log ──────────────────────────────────────────────────
