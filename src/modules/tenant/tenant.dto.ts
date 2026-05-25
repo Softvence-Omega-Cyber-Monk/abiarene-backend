@@ -13,6 +13,24 @@ import {
 } from 'class-validator';
 import { PaginationDto } from '../../common/dto/pagination.dto.js';
 
+export const STRIPE_SUPPORTED_CURRENCIES = [
+  'USD',
+  'EUR',
+  'GBP',
+  'AUD',
+  'CAD',
+  'BDT',
+  'SGD',
+  'INR',
+  'NGN',
+  'KES',
+  'ZAR',
+  'AED',
+  'SAR',
+  'JPY',
+  'CHF',
+] as const;
+
 export class CreateTenantDto {
   @ApiProperty({ description: 'Tenant name' })
   @IsString()
@@ -168,4 +186,14 @@ export class InitiateSubscriptionPaymentDto {
   @IsOptional()
   @IsString()
   payerPhoneNumber?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Currency for Stripe subscription checkout. Currently supported only for Stripe payments.',
+    enum: STRIPE_SUPPORTED_CURRENCIES,
+    example: 'USD',
+  })
+  @IsOptional()
+  @IsIn(STRIPE_SUPPORTED_CURRENCIES)
+  currency?: (typeof STRIPE_SUPPORTED_CURRENCIES)[number];
 }

@@ -7,7 +7,10 @@ import {
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { PaymentProvidersService } from '../payments/payment-providers.service.js';
-import { InitiateSubscriptionPaymentDto } from './tenant.dto.js';
+import {
+  InitiateSubscriptionPaymentDto,
+  STRIPE_SUPPORTED_CURRENCIES,
+} from './tenant.dto.js';
 
 @Injectable()
 export class TenantSubscriptionService {
@@ -81,26 +84,31 @@ export class TenantSubscriptionService {
         provider: 'stripe',
         label: 'Stripe',
         configured: this.paymentProviders.isConfigured('stripe'),
+        supportedCurrencies: STRIPE_SUPPORTED_CURRENCIES,
       },
       {
         provider: 'orange',
         label: 'Orange Money',
         configured: this.paymentProviders.isConfigured('orange'),
+        supportedCurrencies: [],
       },
       {
         provider: 'mtnMomo',
         label: 'MTN MoMo',
         configured: this.paymentProviders.isConfigured('mtnMomo'),
+        supportedCurrencies: [],
       },
       {
         provider: 'paystack',
         label: 'Paystack',
         configured: this.paymentProviders.isConfigured('paystack'),
+        supportedCurrencies: [],
       },
       {
         provider: 'godaddyPayments',
         label: 'GoDaddy Payments',
         configured: this.paymentProviders.isConfigured('godaddyPayments'),
+        supportedCurrencies: [],
       },
     ].filter((provider) => provider.configured);
 
@@ -187,6 +195,14 @@ export class TenantSubscriptionService {
       );
     }
 
+    if (dto.currency && dto.provider !== 'stripe') {
+      throw new BadRequestException(
+        'Currency selection is currently supported only for Stripe payments',
+      );
+    }
+
+    const paymentCurrency = dto.provider === 'stripe' ? dto.currency ?? 'USD' : 'USD';
+
     const reference = `SUB-${Date.now()}-${randomBytes(3)
       .toString('hex')
       .toUpperCase()}`;
@@ -204,7 +220,7 @@ export class TenantSubscriptionService {
         userId,
         provider: providerValue,
         amount: tenant.subscriptionFee,
-        currency: 'USD',
+        currency: paymentCurrency,
         status: 'PENDING',
         reference,
       } as any,
@@ -228,6 +244,7 @@ export class TenantSubscriptionService {
     if (dto.provider === 'stripe') {
       const session = await this.paymentProviders.createStripeCheckoutSession({
         amount: tenant.subscriptionFee,
+        currency: paymentCurrency,
         tenantName: tenant.name,
         reference,
       });
