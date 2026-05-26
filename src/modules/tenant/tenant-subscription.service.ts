@@ -9,16 +9,32 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 import { PaymentProvidersService } from '../payments/payment-providers.service.js';
 import {
   InitiateSubscriptionPaymentDto,
+  PAYSTACK_SUPPORTED_CURRENCIES,
   STRIPE_SUPPORTED_CURRENCIES,
 } from './tenant.dto.js';
 
 @Injectable()
 export class TenantSubscriptionService {
+  private readonly stripeSupportedCurrencies = new Set<string>(
+    STRIPE_SUPPORTED_CURRENCIES,
+  );
+  private readonly paystackSupportedCurrencies = new Set<string>(
+    PAYSTACK_SUPPORTED_CURRENCIES,
+  );
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly paymentProviders: PaymentProvidersService,
     private readonly notifications: NotificationsService,
   ) {}
+
+  private buildHostedCallbackBaseUrl(callbackBaseUrl?: string | null) {
+    if (!callbackBaseUrl) {
+      return null;
+    }
+
+    return callbackBaseUrl.replace(/\/+$/, '');
+  }
 
   private async activateTenantSubscription(tenantId: string) {
     const now = new Date();
@@ -102,7 +118,7 @@ export class TenantSubscriptionService {
         provider: 'paystack',
         label: 'Paystack',
         configured: this.paymentProviders.isConfigured('paystack'),
-        supportedCurrencies: [],
+        supportedCurrencies: PAYSTACK_SUPPORTED_CURRENCIES,
       },
       {
         provider: 'godaddyPayments',
@@ -136,6 +152,7 @@ export class TenantSubscriptionService {
     tenantId: string,
     userId: string,
     dto: InitiateSubscriptionPaymentDto,
+    callbackBaseUrl?: string | null,
   ) {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
@@ -195,17 +212,53 @@ export class TenantSubscriptionService {
       );
     }
 
-    if (dto.currency && dto.provider !== 'stripe') {
+    if (
+      dto.provider === 'stripe' &&
+      dto.currency &&
+      !this.stripeSupportedCurrencies.has(dto.currency)
+    ) {
       throw new BadRequestException(
-        'Currency selection is currently supported only for Stripe payments',
+        `Currency "${dto.currency}" is not supported for Stripe`,
       );
     }
 
-    const paymentCurrency = dto.provider === 'stripe' ? dto.currency ?? 'USD' : 'USD';
+    if (
+      dto.provider === 'paystack' &&
+      dto.currency &&
+      !this.paystackSupportedCurrencies.has(dto.currency)
+    ) {
+      throw new BadRequestException(
+        `Currency "${dto.currency}" is not supported for Paystack`,
+      );
+    }
+
+    if (dto.currency && !['stripe', 'paystack'].includes(dto.provider)) {
+      throw new BadRequestException(
+        'Currency selection is currently supported only for Stripe and Paystack payments',
+      );
+    }
+
+    const paymentCurrency =
+      dto.provider === 'stripe'
+        ? dto.currency ?? 'USD'
+        : dto.provider === 'paystack'
+          ? dto.currency ?? 'USD'
+          : 'USD';
 
     const reference = `SUB-${Date.now()}-${randomBytes(3)
       .toString('hex')
       .toUpperCase()}`;
+    const hostedCallbackBaseUrl =
+      this.buildHostedCallbackBaseUrl(callbackBaseUrl);
+    const stripeSuccessUrl = hostedCallbackBaseUrl
+      ? `${hostedCallbackBaseUrl}/api/payments/callbacks/stripe/success?reference={CHECKOUT_REFERENCE}`
+      : undefined;
+    const stripeCancelUrl = hostedCallbackBaseUrl
+      ? `${hostedCallbackBaseUrl}/api/payments/callbacks/stripe/cancel?reference={CHECKOUT_REFERENCE}`
+      : undefined;
+    const paystackCallbackUrl = hostedCallbackBaseUrl
+      ? `${hostedCallbackBaseUrl}/api/payments/callbacks/paystack?reference={CHECKOUT_REFERENCE}`
+      : undefined;
 
     const providerValue =
       dto.provider === 'mtnMomo'
@@ -247,6 +300,8 @@ export class TenantSubscriptionService {
         currency: paymentCurrency,
         tenantName: tenant.name,
         reference,
+        successUrl: stripeSuccessUrl,
+        cancelUrl: stripeCancelUrl,
       });
 
       await this.prisma.subscriptionPayment.update({
@@ -287,9 +342,11 @@ export class TenantSubscriptionService {
     } else if (dto.provider === 'paystack') {
       const transaction = await this.paymentProviders.createPaystackTransaction({
         amount: tenant.subscriptionFee,
+        currency: paymentCurrency,
         email: managerUser.email,
         tenantName: tenant.name,
         reference,
+        callbackUrl: paystackCallbackUrl,
       });
 
       await this.prisma.subscriptionPayment.update({

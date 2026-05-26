@@ -1,7 +1,14 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
-import { CreateOrdersDto, ListOrdersDto, OrderItemDto, UpdateOrdersDto } from './orders.dto.js';
+import {
+  CreateCashierDirectOrderDto,
+  CreateOrdersDto,
+  DirectOrderCheckoutDto,
+  ListOrdersDto,
+  OrderItemDto,
+  UpdateOrdersDto,
+} from './orders.dto.js';
 import { TicketsService } from '../tickets/tickets.service.js';
 import { buildPaginatedResponse } from '../../common/utils/pagination.js';
 
@@ -38,10 +45,15 @@ export class OrdersService {
     },
   };
 
+  private toMoney(value: number) {
+    return Math.round(value * 100) / 100;
+  }
+
   private formatOrderListItem(order: {
     id: string;
     tenantId: string;
-    tableId: string;
+    tableId: string | null;
+    orderType: string;
     status: string;
     createdBy: string;
     createdAt: Date;
@@ -51,7 +63,7 @@ export class OrdersService {
       tableNumber: number;
       seatCount: number;
       status: string;
-    };
+    } | null;
     items: {
       id: string;
       menuItemId: string;
@@ -80,6 +92,7 @@ export class OrdersService {
       id: order.id,
       tenantId: order.tenantId,
       tableId: order.tableId,
+      orderType: order.orderType,
       status: order.status,
       createdBy: order.createdBy,
       createdAt: order.createdAt,
@@ -103,7 +116,8 @@ export class OrdersService {
   private formatOrderHistoryItem(order: {
     id: string;
     tenantId: string;
-    tableId: string;
+    tableId: string | null;
+    orderType: string;
     status: string;
     createdBy: string;
     createdAt: Date;
@@ -114,7 +128,7 @@ export class OrdersService {
       seatCount: number;
       status: string;
       served?: boolean;
-    };
+    } | null;
     items: {
       id: string;
       menuItemId: string;
@@ -150,6 +164,7 @@ export class OrdersService {
       id: order.id,
       tenantId: order.tenantId,
       tableId: order.tableId,
+      orderType: order.orderType,
       status: order.status,
       createdBy: order.createdBy,
       createdAt: order.createdAt,
@@ -255,6 +270,7 @@ export class OrdersService {
       data: {
         tableId: dto.tableId,
         tenantId,
+        orderType: 'DINE_IN',
         createdBy: userId,
         items: {
           create: orderItems,
@@ -266,6 +282,28 @@ export class OrdersService {
     await this.prisma.table.updateMany({
       where: { id: dto.tableId, tenantId },
       data: { status: 'OCCUPIED', served: false },
+    });
+
+    return this.read(tenantId, order.id);
+  }
+
+  async createCashierDirect(
+    tenantId: string,
+    userId: string,
+    dto: CreateCashierDirectOrderDto,
+  ) {
+    const orderItems = await this.prepareOrderItems(tenantId, dto.items);
+
+    const order = await this.prisma.order.create({
+      data: {
+        tenantId,
+        orderType: 'DIRECT',
+        createdBy: userId,
+        items: {
+          create: orderItems,
+        },
+      },
+      include: this.orderInclude,
     });
 
     return this.read(tenantId, order.id);
@@ -288,6 +326,7 @@ export class OrdersService {
           id: true,
           tenantId: true,
           tableId: true,
+          orderType: true,
           status: true,
           createdBy: true,
           createdAt: true,
@@ -363,6 +402,7 @@ export class OrdersService {
           id: true,
           tenantId: true,
           tableId: true,
+          orderType: true,
           status: true,
           createdBy: true,
           createdAt: true,
@@ -469,6 +509,7 @@ export class OrdersService {
       select: {
         id: true,
         tableId: true,
+        orderType: true,
         status: true,
         table: {
           select: {
@@ -491,16 +532,19 @@ export class OrdersService {
       data: { status: 'CANCELLED' },
     });
 
-    await this.prisma.table.updateMany({
-      where: { tenantId, id: order.tableId },
-      data: { status: 'AVAILABLE', served: false },
-    });
+    if (order.tableId) {
+      await this.prisma.table.updateMany({
+        where: { tenantId, id: order.tableId },
+        data: { status: 'AVAILABLE', served: false },
+      });
+    }
 
     await this.notifications.notifyOrderCancelled({
       tenantId,
       orderId: order.id,
       tableId: order.tableId,
-      tableNumber: order.table.tableNumber,
+      tableNumber: order.table?.tableNumber,
+      orderType: order.orderType as 'DINE_IN' | 'DIRECT',
     });
 
     return this.read(tenantId, id);
@@ -509,7 +553,9 @@ export class OrdersService {
   async sendToKitchen(tenantId: string, id: string) {
     const order = await this.prisma.order.findFirst({
       where: { id, tenantId },
-      include: {
+      select: {
+        id: true,
+        orderType: true,
         table: {
           select: {
             id: true,
@@ -556,10 +602,153 @@ export class OrdersService {
     await this.notifications.notifyOrderSentToKitchen({
       tenantId,
       orderId: order.id,
-      tableId: order.table.id,
-      tableNumber: order.table.tableNumber,
+      tableId: order.table?.id,
+      tableNumber: order.table?.tableNumber,
+      orderType: order.orderType as 'DINE_IN' | 'DIRECT',
     });
 
     return this.read(tenantId, id);
+  }
+
+  async completeCashierDirectCheckout(
+    tenantId: string,
+    id: string,
+    dto: DirectOrderCheckoutDto,
+  ) {
+    if (dto.method !== 'CASH' && dto.method !== 'CARD') {
+      throw new BadRequestException(
+        'Only CASH or CARD is allowed for direct cashier checkout',
+      );
+    }
+
+    const order = await this.prisma.order.findFirst({
+      where: { tenantId, id },
+      select: {
+        id: true,
+        tenantId: true,
+        tableId: true,
+        orderType: true,
+        status: true,
+        items: {
+          select: {
+            quantity: true,
+            menuItem: {
+              select: {
+                price: true,
+              },
+            },
+          },
+        },
+        payments: {
+          select: {
+            id: true,
+            status: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new BadRequestException('Order not found for this tenant');
+    }
+
+    if (order.orderType !== 'DIRECT') {
+      throw new BadRequestException('Use table checkout for dine-in orders');
+    }
+
+    if (order.status === 'CANCELLED') {
+      throw new BadRequestException('Cancelled orders cannot be checked out');
+    }
+
+    if (order.payments.some((payment) => payment.status === 'COMPLETED')) {
+      throw new BadRequestException('This direct order has already been checked out');
+    }
+
+    if (order.items.length === 0) {
+      throw new BadRequestException('No items found for this direct order');
+    }
+
+    const subtotal = this.toMoney(
+      order.items.reduce(
+        (sum, item) => sum + item.quantity * item.menuItem.price,
+        0,
+      ),
+    );
+
+    let discountAmount = 0;
+    let appliedDiscount: null | {
+      id: string;
+      name: string;
+      minimumPrice: number;
+      offPrice: number;
+    } = null;
+
+    if (dto.discountId) {
+      const discount = await this.prisma.discount.findFirst({
+        where: {
+          id: dto.discountId,
+          tenantId,
+          isActive: true,
+        },
+        select: {
+          id: true,
+          name: true,
+          minimumPrice: true,
+          offPrice: true,
+        },
+      });
+
+      if (!discount) {
+        throw new BadRequestException('Discount not found for this tenant');
+      }
+
+      if (subtotal < discount.minimumPrice) {
+        throw new BadRequestException(
+          `This discount requires a minimum spend of ${discount.minimumPrice}`,
+        );
+      }
+
+      discountAmount = Math.min(discount.offPrice, subtotal);
+      appliedDiscount = discount;
+    }
+
+    const totalAmount = this.toMoney(Math.max(0, subtotal - discountAmount));
+
+    const payment = await this.prisma.payment.create({
+      data: {
+        orderId: order.id,
+        tenantId,
+        amount: totalAmount,
+        status: 'COMPLETED',
+        method: dto.method,
+      },
+    });
+
+    await this.prisma.order.updateMany({
+      where: { tenantId, id: order.id },
+      data: { status: 'COMPLETED' },
+    });
+
+    await this.notifications.notifyCashierPaymentCompleted({
+      tenantId,
+      tableId: null,
+      tableNumber: null,
+      orderId: order.id,
+      orderType: 'DIRECT',
+      paymentMethod: dto.method,
+      totalAmount,
+      orderCount: 1,
+    });
+
+    return {
+      payment,
+      order: await this.read(tenantId, order.id),
+      summary: {
+        subtotal,
+        discountAmount: this.toMoney(discountAmount),
+        totalAmount,
+        appliedDiscount,
+      },
+    };
   }
 }

@@ -1,10 +1,13 @@
 import {
   IsEmail,
+  IsBoolean,
+  IsNumber,
   IsOptional,
   Matches,
+  Min,
   IsString,
 } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 
 export class AdminSignupDto {
   @ApiProperty({ description: 'Admin email', example: 'admin@example.com' })
@@ -50,3 +53,36 @@ export class ListAdminDto {
   @IsOptional() @IsString() from?: string;
   @IsOptional() @IsString() to?: string;
 }
+
+export class CreateSubscriptionPriceDto {
+  @ApiProperty({ example: 'Starter Plan' })
+  @IsString()
+  name!: string;
+
+  @ApiPropertyOptional({ example: 'restaurant', default: 'restaurant' })
+  @IsOptional()
+  @IsString()
+  industry?: string;
+
+  @ApiPropertyOptional({ example: 'Base monthly subscription price' })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiProperty({ example: 99.99 })
+  @IsNumber()
+  @Min(0)
+  amount!: number;
+
+  @ApiPropertyOptional({ example: 'USD', default: 'USD' })
+  @IsOptional()
+  @IsString()
+  currency?: string;
+
+  @ApiPropertyOptional({ example: true, default: true })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
+
+export class UpdateSubscriptionPriceDto extends PartialType(CreateSubscriptionPriceDto) {}

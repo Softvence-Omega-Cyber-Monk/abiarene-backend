@@ -31,6 +31,22 @@ export const STRIPE_SUPPORTED_CURRENCIES = [
   'CHF',
 ] as const;
 
+export const PAYSTACK_SUPPORTED_CURRENCIES = [
+  'NGN',
+  'USD',
+  'GHS',
+  'ZAR',
+  'KES',
+  'XOF',
+] as const;
+
+export const SUBSCRIPTION_PAYMENT_SUPPORTED_CURRENCIES = [
+  ...new Set([
+    ...STRIPE_SUPPORTED_CURRENCIES,
+    ...PAYSTACK_SUPPORTED_CURRENCIES,
+  ]),
+] as const;
+
 export class CreateTenantDto {
   @ApiProperty({ description: 'Tenant name' })
   @IsString()
@@ -189,11 +205,11 @@ export class InitiateSubscriptionPaymentDto {
 
   @ApiPropertyOptional({
     description:
-      'Currency for Stripe subscription checkout. Currently supported only for Stripe payments.',
-    enum: STRIPE_SUPPORTED_CURRENCIES,
+      'Currency for subscription checkout. Stripe supports a wider set, Paystack supports NGN, USD, GHS, ZAR, KES, XOF.',
+    enum: SUBSCRIPTION_PAYMENT_SUPPORTED_CURRENCIES,
     example: 'USD',
   })
   @IsOptional()
-  @IsIn(STRIPE_SUPPORTED_CURRENCIES)
-  currency?: (typeof STRIPE_SUPPORTED_CURRENCIES)[number];
+  @IsIn(SUBSCRIPTION_PAYMENT_SUPPORTED_CURRENCIES)
+  currency?: (typeof SUBSCRIPTION_PAYMENT_SUPPORTED_CURRENCIES)[number];
 }

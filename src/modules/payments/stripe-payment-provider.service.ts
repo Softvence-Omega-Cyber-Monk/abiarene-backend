@@ -62,13 +62,17 @@ export class StripePaymentProviderService {
     currency?: string;
     tenantName: string;
     reference: string;
+    successUrl?: string;
+    cancelUrl?: string;
   }) {
     const stripeConfig = this.getConfig();
 
     const successUrl =
+      input.successUrl ??
       stripeConfig.subscriptionSuccessUrl ??
       'http://localhost:5173/subscription/success?reference={CHECKOUT_REFERENCE}';
     const cancelUrl =
+      input.cancelUrl ??
       stripeConfig.subscriptionCancelUrl ??
       'http://localhost:5173/subscription/cancel?reference={CHECKOUT_REFERENCE}';
 

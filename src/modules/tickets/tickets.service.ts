@@ -57,6 +57,7 @@ export class TicketsService {
     updatedAt: Date;
     order: {
       id: string;
+      orderType: string;
       status: string;
       createdAt: Date;
       table: {
@@ -65,7 +66,7 @@ export class TicketsService {
         seatCount: number;
         status: string;
         served: boolean;
-      };
+      } | null;
     };
     items: {
       id: string;
@@ -93,6 +94,7 @@ export class TicketsService {
       updatedAt: ticket.updatedAt,
       order: {
         id: ticket.order.id,
+        orderType: ticket.order.orderType,
         status: ticket.order.status,
         createdAt: ticket.order.createdAt,
       },
@@ -126,6 +128,7 @@ export class TicketsService {
       select: {
         id: true,
         status: true,
+        orderType: true,
         createdAt: true,
         table: {
           select: {
@@ -288,6 +291,7 @@ export class TicketsService {
         orderId: true,
         order: {
           select: {
+            orderType: true,
             tableId: true,
             table: {
               select: {
@@ -315,7 +319,8 @@ export class TicketsService {
       ticketCode: ticket.ticketCode,
       orderId: ticket.orderId,
       tableId: ticket.order.tableId,
-      tableNumber: ticket.order.table.tableNumber,
+      tableNumber: ticket.order.table?.tableNumber,
+      orderType: ticket.order.orderType as 'DINE_IN' | 'DIRECT',
     });
 
     return this.read(tenantId, id);
@@ -330,6 +335,7 @@ export class TicketsService {
         orderId: true,
         order: {
           select: {
+            orderType: true,
             tableId: true,
             table: {
               select: {
@@ -361,7 +367,8 @@ export class TicketsService {
       ticketCode: ticket.ticketCode,
       orderId: ticket.orderId,
       tableId: ticket.order.tableId,
-      tableNumber: ticket.order.table.tableNumber,
+      tableNumber: ticket.order.table?.tableNumber,
+      orderType: ticket.order.orderType as 'DINE_IN' | 'DIRECT',
     });
 
     return this.read(tenantId, id);

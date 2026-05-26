@@ -43,6 +43,33 @@ export class CreateOrdersDto {
   items!: OrderItemDto[];
 }
 
+export class CreateCashierDirectOrderDto {
+  @ApiProperty({ type: [OrderItemDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => OrderItemDto)
+  items!: OrderItemDto[];
+}
+
+export class DirectOrderCheckoutDto {
+  @ApiProperty({
+    enum: ['CASH', 'CARD'],
+    description: 'How the direct order bill was paid',
+    example: 'CASH',
+  })
+  @IsIn(['CASH', 'CARD'])
+  method!: 'CASH' | 'CARD';
+
+  @ApiPropertyOptional({
+    description: 'Optional discount ID to apply during direct checkout',
+    example: 'discount-id',
+  })
+  @IsOptional()
+  @IsString()
+  discountId?: string;
+}
+
 export class UpdateOrdersDto extends PartialType(CreateOrdersDto) {
   @ApiPropertyOptional({ enum: ['CONFIRMED', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED'] })
   @IsOptional()

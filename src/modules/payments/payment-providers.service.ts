@@ -38,6 +38,8 @@ export class PaymentProvidersService {
     currency?: string;
     tenantName: string;
     reference: string;
+    successUrl?: string;
+    cancelUrl?: string;
   }) {
     return this.stripeProvider.createCheckoutSession(input);
   }
@@ -84,6 +86,7 @@ export class PaymentProvidersService {
     email: string;
     tenantName: string;
     reference: string;
+    callbackUrl?: string;
   }) {
     return this.paystackProvider.createTransaction(input);
   }

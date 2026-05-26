@@ -94,7 +94,12 @@ export class TenantTablesService {
         served: true,
         orders: {
           where: {
-            status: { notIn: ['COMPLETED', 'CANCELLED'] },
+            status: { not: 'CANCELLED' },
+            payments: {
+              none: {
+                status: 'COMPLETED',
+              },
+            },
           },
           select: {
             id: true,
@@ -230,7 +235,12 @@ export class TenantTablesService {
         tableNumber: true,
         orders: {
           where: {
-            status: { notIn: ['COMPLETED', 'CANCELLED'] },
+            status: { not: 'CANCELLED' },
+            payments: {
+              none: {
+                status: 'COMPLETED',
+              },
+            },
           },
           select: {
             id: true,
@@ -254,7 +264,7 @@ export class TenantTablesService {
     }
 
     if (table.orders.length === 0) {
-      throw new BadRequestException('No active orders found for this table');
+      throw new BadRequestException('No unpaid orders found for this table');
     }
 
     const orderSubtotals = table.orders.map((order) => ({
@@ -356,6 +366,7 @@ export class TenantTablesService {
       where: { tenantId, id: table.id },
       data: {
         status: 'AVAILABLE',
+        served: false,
       },
     });
 

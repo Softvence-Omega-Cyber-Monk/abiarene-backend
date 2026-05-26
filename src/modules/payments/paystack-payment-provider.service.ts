@@ -70,9 +70,11 @@ export class PaystackPaymentProviderService {
     email: string;
     tenantName: string;
     reference: string;
+    callbackUrl?: string;
   }) {
     const paystackConfig = this.getConfig();
     const callbackUrl =
+      input.callbackUrl ??
       paystackConfig.subscriptionCallbackUrl ??
       'http://localhost:5173/subscription/paystack/callback?reference={CHECKOUT_REFERENCE}';
 

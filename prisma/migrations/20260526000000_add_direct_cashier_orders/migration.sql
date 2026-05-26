@@ -1,0 +1,7 @@
+CREATE TYPE "OrderType" AS ENUM ('DINE_IN', 'DIRECT');
+
+ALTER TABLE "orders"
+ADD COLUMN "orderType" "OrderType" NOT NULL DEFAULT 'DINE_IN';
+
+ALTER TABLE "orders"
+ALTER COLUMN "tableId" DROP NOT NULL;

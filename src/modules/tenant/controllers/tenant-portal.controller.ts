@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UnauthorizedException,
 } from '@nestjs/common';
 import {
@@ -28,6 +29,7 @@ import {
   UpdateTenantDto,
 } from '../tenant.dto.js';
 import { TenantPortalService } from '../services/tenant-portal.service.js';
+import type { Request } from 'express';
 
 @ApiTags('Tenant Portal')
 @ApiBearerAuth()
@@ -40,6 +42,23 @@ export class TenantPortalController {
       throw new UnauthorizedException('Missing tenant context');
     }
     return user.tenantId;
+  }
+
+  private getRequestBaseUrl(request: Request) {
+    const forwardedProto = request.headers['x-forwarded-proto'];
+    const protocol = Array.isArray(forwardedProto)
+      ? forwardedProto[0]
+      : forwardedProto ?? request.protocol;
+    const forwardedHost = request.headers['x-forwarded-host'];
+    const host = Array.isArray(forwardedHost)
+      ? forwardedHost[0]
+      : forwardedHost ?? request.get('host');
+
+    if (!host) {
+      return null;
+    }
+
+    return `${protocol}://${host}`;
   }
 
   @Post('create')
@@ -173,6 +192,7 @@ export class TenantPortalController {
   @ApiResponse({ status: 201, description: 'Tenant subscription payment initiated' })
   initiateSubscriptionPayment(
     @CurrentUser() user: AuthUser | undefined,
+    @Req() request: Request,
     @Body() dto: InitiateSubscriptionPaymentDto,
   ) {
     if (!user?.sub) {
@@ -183,6 +203,7 @@ export class TenantPortalController {
       this.tenantId(user),
       user.sub,
       dto,
+      this.getRequestBaseUrl(request),
     );
   }
 }

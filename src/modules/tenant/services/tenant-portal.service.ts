@@ -51,11 +51,13 @@ export class TenantPortalService {
     tenantId: string,
     userId: string,
     dto: InitiateSubscriptionPaymentDto,
+    callbackBaseUrl?: string | null,
   ) {
     return this.subscriptionService.initiateSubscriptionPayment(
       tenantId,
       userId,
       dto,
+      callbackBaseUrl,
     );
   }
 

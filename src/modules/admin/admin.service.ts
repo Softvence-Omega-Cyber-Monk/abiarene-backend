@@ -1,11 +1,16 @@
 import {
   Injectable,
   BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { RoleName } from '../../common/constants/role-name.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { AdminSignupDto } from './admin.dto.js';
+import {
+  AdminSignupDto,
+  CreateSubscriptionPriceDto,
+  UpdateSubscriptionPriceDto,
+} from './admin.dto.js';
 
 @Injectable()
 export class AdminService {
@@ -192,6 +197,109 @@ export class AdminService {
         currentMonthStart,
         comparedAt: now,
       },
+    };
+  }
+
+  createSubscriptionPrice(adminId: string, dto: CreateSubscriptionPriceDto) {
+    return this.prisma.subscriptionPrice.create({
+      data: {
+        name: dto.name,
+        industry: dto.industry ?? 'restaurant',
+        description: dto.description,
+        amount: this.toMoney(dto.amount),
+        currency: (dto.currency ?? 'USD').toUpperCase(),
+        isActive: dto.isActive ?? true,
+        createdById: adminId,
+      },
+      select: {
+        id: true,
+        name: true,
+        industry: true,
+        description: true,
+        amount: true,
+        currency: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  listSubscriptionPrices() {
+    return this.prisma.subscriptionPrice.findMany({
+      orderBy: [
+        { isActive: 'desc' },
+        { createdAt: 'desc' },
+      ],
+      select: {
+        id: true,
+        name: true,
+        industry: true,
+        description: true,
+        amount: true,
+        currency: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  async updateSubscriptionPrice(
+    _adminId: string,
+    id: string,
+    dto: UpdateSubscriptionPriceDto,
+  ) {
+    const existing = await this.prisma.subscriptionPrice.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Subscription price not found');
+    }
+
+    return this.prisma.subscriptionPrice.update({
+      where: { id },
+      data: {
+        ...(dto.name !== undefined ? { name: dto.name } : {}),
+        ...(dto.industry !== undefined ? { industry: dto.industry } : {}),
+        ...(dto.description !== undefined ? { description: dto.description } : {}),
+        ...(dto.amount !== undefined ? { amount: this.toMoney(dto.amount) } : {}),
+        ...(dto.currency !== undefined ? { currency: dto.currency.toUpperCase() } : {}),
+        ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        industry: true,
+        description: true,
+        amount: true,
+        currency: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  async deleteSubscriptionPrice(id: string) {
+    const existing = await this.prisma.subscriptionPrice.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Subscription price not found');
+    }
+
+    await this.prisma.subscriptionPrice.delete({
+      where: { id },
+    });
+
+    return {
+      success: true,
+      id,
     };
   }
 }

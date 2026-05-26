@@ -48,6 +48,17 @@ export class NotificationsService {
     return [...new Set([...roles, RoleName.MANAGER, RoleName.SUPERVISOR])];
   }
 
+  private getOrderLabel(input: {
+    orderType?: 'DINE_IN' | 'DIRECT';
+    tableNumber?: number | null;
+  }) {
+    if (input.orderType === 'DIRECT' || input.tableNumber == null) {
+      return 'direct order';
+    }
+
+    return `table ${input.tableNumber}`;
+  }
+
   private async notifyUsersByRole(input: {
     tenantId: string;
     roles: RoleName[];
@@ -134,19 +145,23 @@ export class NotificationsService {
   async notifyOrderSentToKitchen(input: {
     tenantId: string;
     orderId: string;
-    tableId: string;
-    tableNumber: number;
+    tableId?: string | null;
+    tableNumber?: number | null;
+    orderType?: 'DINE_IN' | 'DIRECT';
   }) {
+    const orderLabel = this.getOrderLabel(input);
+
     await this.notifyUsersByRole({
       tenantId: input.tenantId,
       roles: this.withLeadershipRoles([RoleName.KITCHEN]),
       type: 'ORDER_SENT_TO_KITCHEN',
-      title: `New order on table ${input.tableNumber}`,
-      message: `A new order was sent to kitchen for table ${input.tableNumber}.`,
+      title: `New order for ${orderLabel}`,
+      message: `A new order was sent to kitchen for ${orderLabel}.`,
       payload: {
         orderId: input.orderId,
         tableId: input.tableId,
         tableNumber: input.tableNumber,
+        orderType: input.orderType,
       },
     });
   }
@@ -154,31 +169,36 @@ export class NotificationsService {
   async notifyOrderCancelled(input: {
     tenantId: string;
     orderId: string;
-    tableId: string;
-    tableNumber: number;
+    tableId?: string | null;
+    tableNumber?: number | null;
+    orderType?: 'DINE_IN' | 'DIRECT';
   }) {
+    const orderLabel = this.getOrderLabel(input);
+
     await Promise.all([
       this.notifyUsersByRole({
         tenantId: input.tenantId,
         roles: this.withLeadershipRoles([RoleName.KITCHEN]),
         type: 'ORDER_CANCELLED',
-        title: `Order cancelled on table ${input.tableNumber}`,
-        message: `An order was cancelled for table ${input.tableNumber}.`,
+        title: `Order cancelled for ${orderLabel}`,
+        message: `An order was cancelled for ${orderLabel}.`,
         payload: {
           orderId: input.orderId,
           tableId: input.tableId,
           tableNumber: input.tableNumber,
+          orderType: input.orderType,
         },
       }),
       this.notifyAdmins({
         tenantId: input.tenantId,
         type: 'ORDER_CANCELLED',
-        title: `Order cancelled on table ${input.tableNumber}`,
-        message: `A server cancelled an order for table ${input.tableNumber}.`,
+        title: `Order cancelled for ${orderLabel}`,
+        message: `A staff member cancelled an order for ${orderLabel}.`,
         payload: {
           orderId: input.orderId,
           tableId: input.tableId,
           tableNumber: input.tableNumber,
+          orderType: input.orderType,
         },
       }),
     ]);
@@ -189,35 +209,40 @@ export class NotificationsService {
     ticketId: string;
     ticketCode: string;
     orderId: string;
-    tableId: string;
-    tableNumber: number;
+    tableId?: string | null;
+    tableNumber?: number | null;
+    orderType?: 'DINE_IN' | 'DIRECT';
   }) {
+    const orderLabel = this.getOrderLabel(input);
+
     await Promise.all([
       this.notifyUsersByRole({
         tenantId: input.tenantId,
         roles: this.withLeadershipRoles([RoleName.CASHIER, RoleName.SERVER]),
         type: 'ORDER_READY',
-        title: `Order ready on table ${input.tableNumber}`,
-        message: `Kitchen marked order ready for table ${input.tableNumber}.`,
+        title: `Order ready for ${orderLabel}`,
+        message: `Kitchen marked the order ready for ${orderLabel}.`,
         payload: {
           ticketId: input.ticketId,
           ticketCode: input.ticketCode,
           orderId: input.orderId,
           tableId: input.tableId,
           tableNumber: input.tableNumber,
+          orderType: input.orderType,
         },
       }),
       this.notifyAdmins({
         tenantId: input.tenantId,
         type: 'ORDER_READY',
-        title: `Kitchen completed order on table ${input.tableNumber}`,
-        message: `Kitchen marked order ready for table ${input.tableNumber}.`,
+        title: `Kitchen completed order for ${orderLabel}`,
+        message: `Kitchen marked the order ready for ${orderLabel}.`,
         payload: {
           ticketId: input.ticketId,
           ticketCode: input.ticketCode,
           orderId: input.orderId,
           tableId: input.tableId,
           tableNumber: input.tableNumber,
+          orderType: input.orderType,
         },
       }),
     ]);
@@ -228,35 +253,40 @@ export class NotificationsService {
     ticketId: string;
     ticketCode: string;
     orderId: string;
-    tableId: string;
-    tableNumber: number;
+    tableId?: string | null;
+    tableNumber?: number | null;
+    orderType?: 'DINE_IN' | 'DIRECT';
   }) {
+    const orderLabel = this.getOrderLabel(input);
+
     await Promise.all([
       this.notifyUsersByRole({
         tenantId: input.tenantId,
         roles: this.withLeadershipRoles([RoleName.SERVER]),
         type: 'ORDER_ARCHIVED',
-        title: `Order archived on table ${input.tableNumber}`,
-        message: `Order workflow was archived for table ${input.tableNumber}.`,
+        title: `Order archived for ${orderLabel}`,
+        message: `Order workflow was archived for ${orderLabel}.`,
         payload: {
           ticketId: input.ticketId,
           ticketCode: input.ticketCode,
           orderId: input.orderId,
           tableId: input.tableId,
           tableNumber: input.tableNumber,
+          orderType: input.orderType,
         },
       }),
       this.notifyAdmins({
         tenantId: input.tenantId,
         type: 'ORDER_ARCHIVED',
-        title: `Order archived on table ${input.tableNumber}`,
-        message: `A ticket was archived for table ${input.tableNumber}.`,
+        title: `Order archived for ${orderLabel}`,
+        message: `A ticket was archived for ${orderLabel}.`,
         payload: {
           ticketId: input.ticketId,
           ticketCode: input.ticketCode,
           orderId: input.orderId,
           tableId: input.tableId,
           tableNumber: input.tableNumber,
+          orderType: input.orderType,
         },
       }),
     ]);
@@ -264,20 +294,26 @@ export class NotificationsService {
 
   async notifyCashierPaymentCompleted(input: {
     tenantId: string;
-    tableId: string;
-    tableNumber: number;
+    tableId?: string | null;
+    tableNumber?: number | null;
+    orderId?: string;
+    orderType?: 'DINE_IN' | 'DIRECT';
     paymentMethod: string;
     totalAmount: number;
     orderCount: number;
   }) {
+    const orderLabel = this.getOrderLabel(input);
+
     await Promise.all([
       this.notifyUsersByRole({
         tenantId: input.tenantId,
         roles: this.withLeadershipRoles([]),
         type: 'PAYMENT_COMPLETED',
-        title: `Payment completed on table ${input.tableNumber}`,
-        message: `Cashier completed payment for table ${input.tableNumber} by ${input.paymentMethod}.`,
+        title: `Payment completed for ${orderLabel}`,
+        message: `Cashier completed payment for ${orderLabel} by ${input.paymentMethod}.`,
         payload: {
+          orderId: input.orderId,
+          orderType: input.orderType,
           tableId: input.tableId,
           tableNumber: input.tableNumber,
           paymentMethod: input.paymentMethod,
@@ -288,9 +324,11 @@ export class NotificationsService {
       this.notifyAdmins({
         tenantId: input.tenantId,
         type: 'PAYMENT_COMPLETED',
-        title: `Payment completed on table ${input.tableNumber}`,
-        message: `Cashier completed payment for table ${input.tableNumber} by ${input.paymentMethod}.`,
+        title: `Payment completed for ${orderLabel}`,
+        message: `Cashier completed payment for ${orderLabel} by ${input.paymentMethod}.`,
         payload: {
+          orderId: input.orderId,
+          orderType: input.orderType,
           tableId: input.tableId,
           tableNumber: input.tableNumber,
           paymentMethod: input.paymentMethod,

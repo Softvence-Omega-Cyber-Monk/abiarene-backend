@@ -3,7 +3,13 @@ import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@ne
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { AuthUser } from '../../common/interfaces/auth-user.interface.js';
-import { CreateOrdersDto, ListOrdersDto, UpdateOrdersDto } from './orders.dto.js';
+import {
+  CreateCashierDirectOrderDto,
+  CreateOrdersDto,
+  DirectOrderCheckoutDto,
+  ListOrdersDto,
+  UpdateOrdersDto,
+} from './orders.dto.js';
 import { OrdersService } from './orders.service.js';
 
 @ApiTags('Orders')
@@ -19,7 +25,7 @@ export class OrdersController {
   }
 
   @Post()
-  @Roles('manager', 'supervisor', 'server')
+  @Roles('manager', 'supervisor', 'server', 'cashier')
   @ApiOperation({ summary: 'Create a confirmed order with selected menu items for a table under your current tenant' })
   @ApiResponse({ status: 201, description: 'Confirmed order created with selected menu items and table marked occupied under your current tenant' })
   create(@CurrentUser() user: AuthUser | undefined, @Body() dto: CreateOrdersDto) {
@@ -27,8 +33,20 @@ export class OrdersController {
     return this.service.create(me.tenantId, me.sub, dto);
   }
 
+  @Post('cashier-direct')
+  @Roles('cashier')
+  @ApiOperation({ summary: 'Create a direct cashier order without a table under your current tenant' })
+  @ApiResponse({ status: 201, description: 'Direct cashier order created' })
+  createCashierDirect(
+    @CurrentUser() user: AuthUser | undefined,
+    @Body() dto: CreateCashierDirectOrderDto,
+  ) {
+    const me = this.me(user);
+    return this.service.createCashierDirect(me.tenantId, me.sub, dto);
+  }
+
   @Get()
-  @Roles('manager', 'supervisor', 'server')
+  @Roles('manager', 'supervisor', 'server', 'cashier')
   @ApiOperation({ summary: 'List orders under your current tenant' })
   @ApiResponse({ status: 200, description: 'Orders retrieved' })
   @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
@@ -61,8 +79,20 @@ export class OrdersController {
     } as ListOrdersDto);
   }
 
+  @Post(':id/cashier-direct-checkout')
+  @Roles('cashier')
+  @ApiOperation({ summary: 'Complete cashier checkout for a direct order under your current tenant' })
+  @ApiResponse({ status: 201, description: 'Direct cashier order payment completed' })
+  directCheckout(
+    @CurrentUser() user: AuthUser | undefined,
+    @Param('id') id: string,
+    @Body() dto: DirectOrderCheckoutDto,
+  ) {
+    return this.service.completeCashierDirectCheckout(this.me(user).tenantId, id, dto);
+  }
+
   @Get(':id')
-  @Roles('manager', 'supervisor', 'server')
+  @Roles('manager', 'supervisor', 'server', 'cashier')
   @ApiOperation({ summary: 'Get order by ID under your current tenant' })
   @ApiResponse({ status: 200, description: 'Order retrieved' })
   read(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
@@ -98,7 +128,7 @@ export class OrdersController {
   }
 
   @Post(':id/send-to-kitchen')
-  @Roles('manager', 'supervisor', 'server')
+  @Roles('manager', 'supervisor', 'server', 'cashier')
   @ApiOperation({ summary: 'Send an order to kitchen and create a kitchen ticket under your current tenant' })
   @ApiResponse({ status: 201, description: 'Order sent to kitchen, kitchen ticket created, and order status changed to PREPARING' })
   sendToKitchen(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
