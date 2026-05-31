@@ -85,6 +85,8 @@ export class TenantService {
         data: {
           name: dto.name,
           industry: dto.industry ?? 'restaurant',
+          mobileLogo: dto.mobileLogo,
+          tabletLogo: dto.tabletLogo,
           subscriptionFee: dto.subscriptionFee ?? 0,
           status: 'ACTIVE',
           subscriptionStatus: 'PENDING',
@@ -171,7 +173,8 @@ export class TenantService {
       data: {
         name: dto.name,
         industry: dto.industry,
-        subscriptionFee: dto.subscriptionFee,
+        mobileLogo: dto.mobileLogo,
+        tabletLogo: dto.tabletLogo,
       },
     });
     return this.read(tenantId, id);

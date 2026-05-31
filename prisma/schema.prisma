@@ -119,6 +119,8 @@ model Tenant {
   id              String       @id @default(uuid())
   name            String
   industry        String       @default("restaurant")
+  mobileLogo      String?
+  tabletLogo      String?
   subscriptionFee Float        @default(0)
   status          TenantStatus @default(ACTIVE)
   subscriptionStatus SubscriptionStatus @default(PENDING)

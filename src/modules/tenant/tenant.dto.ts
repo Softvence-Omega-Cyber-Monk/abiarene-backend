@@ -58,6 +58,16 @@ export class CreateTenantDto {
   @IsString()
   industry?: string;
 
+  @ApiPropertyOptional({ description: 'Mobile logo URL', example: 'https://example.com/mobile-logo.png' })
+  @IsOptional()
+  @IsString()
+  mobileLogo?: string;
+
+  @ApiPropertyOptional({ description: 'Tablet logo URL', example: 'https://example.com/tablet-logo.png' })
+  @IsOptional()
+  @IsString()
+  tabletLogo?: string;
+
   @ApiPropertyOptional({ description: 'Subscription fee', example: 99.99 })
   @IsOptional()
   @IsNumber()
@@ -108,10 +118,15 @@ export class UpdateTenantDto {
   @IsString()
   industry?: string;
 
-  @ApiPropertyOptional({ description: 'Subscription fee', example: 99.99 })
+  @ApiPropertyOptional({ description: 'Mobile logo URL', example: 'https://example.com/mobile-logo.png' })
   @IsOptional()
-  @IsNumber()
-  subscriptionFee?: number;
+  @IsString()
+  mobileLogo?: string;
+
+  @ApiPropertyOptional({ description: 'Tablet logo URL', example: 'https://example.com/tablet-logo.png' })
+  @IsOptional()
+  @IsString()
+  tabletLogo?: string;
 }
 
 export class ListTenantDto extends PaginationDto {}
