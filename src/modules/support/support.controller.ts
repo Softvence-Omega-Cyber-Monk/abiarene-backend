@@ -41,7 +41,7 @@ export class SupportController {
   }
 
   @Post()
-  @Roles('manager', 'supervisor')
+  @Roles('supervisor')
   @ApiOperation({ summary: 'Create support issue under your current tenant' })
   @ApiResponse({ status: 201, description: 'Support issue created with OPEN status and sent to admin queue' })
   create(
@@ -52,7 +52,7 @@ export class SupportController {
   }
 
   @Get()
-  @Roles('manager', 'supervisor', 'admin')
+  @Roles('supervisor', 'admin')
   @ApiOperation({ summary: 'List support issues for your role scope' })
   @ApiResponse({ status: 200, description: 'Support issues retrieved' })
   @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
@@ -72,7 +72,7 @@ export class SupportController {
   }
 
   @Get(':id')
-  @Roles('manager', 'supervisor', 'admin')
+  @Roles('supervisor', 'admin')
   @ApiOperation({ summary: 'Get support issue details with conversation messages' })
   @ApiResponse({ status: 200, description: 'Support issue retrieved' })
   read(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
@@ -80,7 +80,7 @@ export class SupportController {
   }
 
   @Post(':id/messages')
-  @Roles('manager', 'supervisor', 'admin')
+  @Roles('supervisor', 'admin')
   @ApiOperation({ summary: 'Add a conversation message to a support issue' })
   @ApiResponse({ status: 201, description: 'Support message added' })
   addMessage(

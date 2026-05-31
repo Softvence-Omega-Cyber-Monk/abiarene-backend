@@ -42,7 +42,7 @@ export class SupportService {
       messages?: {
         id: string;
         ticketId: string;
-        senderRole: 'ADMIN' | 'MANAGER';
+        senderRole: string;
         senderName: string;
         senderEmail: string;
         message: string;
@@ -81,9 +81,9 @@ export class SupportService {
     }
 
     return {
-      senderRole: 'MANAGER' as const,
-      senderName: user.name ?? 'Manager',
-      senderEmail: user.email ?? 'manager',
+      senderRole: 'SUPERVISOR' as const,
+      senderName: user.name ?? 'Supervisor',
+      senderEmail: user.email ?? 'supervisor',
     };
   }
 

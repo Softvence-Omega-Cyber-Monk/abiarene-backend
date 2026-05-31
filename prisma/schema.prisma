@@ -94,7 +94,7 @@ enum SupportTicketStatus {
 
 enum SupportMessageSenderRole {
   ADMIN
-  MANAGER
+  SUPERVISOR
 }
 
 enum NotificationType {
