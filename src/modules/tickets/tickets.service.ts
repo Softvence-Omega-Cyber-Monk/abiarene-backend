@@ -47,6 +47,31 @@ export class TicketsService {
     };
   }
 
+  private resolveTicketItem(orderItem: any) {
+    const source = orderItem.menuItem ?? orderItem.product ?? null;
+    const itemId =
+      orderItem.menuItemId ?? orderItem.productId ?? source?.id ?? orderItem.id;
+    const name = orderItem.itemName ?? source?.name ?? 'Unknown Item';
+    const category = orderItem.itemCategory ?? source?.category ?? null;
+    const image = orderItem.itemImage ?? source?.image ?? null;
+    const unitPrice = orderItem.unitPrice ?? source?.price ?? 0;
+
+    return {
+      id: orderItem.id,
+      quantity: orderItem.quantity,
+      notes: orderItem.notes,
+      selectedOptions: orderItem.selectedOptions,
+      item: {
+        id: itemId,
+        name,
+        category,
+        image,
+        price: unitPrice,
+      },
+      sourceType: orderItem.productId ? 'INVENTORY' : 'MENU',
+    };
+  }
+
   private formatTicketSummary(ticket: {
     id: string;
     ticketCode: string;
@@ -72,6 +97,12 @@ export class TicketsService {
       id: string;
       orderItem: {
         id: string;
+        menuItemId: string | null;
+        productId: string | null;
+        itemName: string | null;
+        itemCategory: string | null;
+        itemImage: string | null;
+        unitPrice: number | null;
         quantity: number;
         notes: string | null;
         selectedOptions: string[];
@@ -80,7 +111,13 @@ export class TicketsService {
           name: string;
           category: string;
           image: string | null;
-        };
+          price: number;
+        } | null;
+        product: {
+          id: string;
+          name: string;
+          price: number;
+        } | null;
       };
     }[];
   }) {
@@ -99,13 +136,7 @@ export class TicketsService {
         createdAt: ticket.order.createdAt,
       },
       table: ticket.order.table,
-      items: ticket.items.map((item) => ({
-        id: item.orderItem.id,
-        quantity: item.orderItem.quantity,
-        notes: item.orderItem.notes,
-        selectedOptions: item.orderItem.selectedOptions,
-        item: item.orderItem.menuItem,
-      })),
+      items: ticket.items.map((item) => this.resolveTicketItem(item.orderItem)),
       meta: {
         itemCount: ticket.items.length,
         totalQuantity: ticket.items.reduce(
@@ -147,6 +178,12 @@ export class TicketsService {
         orderItem: {
           select: {
             id: true,
+            menuItemId: true,
+            productId: true,
+            itemName: true,
+            itemCategory: true,
+            itemImage: true,
+            unitPrice: true,
             quantity: true,
             notes: true,
             selectedOptions: true,
@@ -156,6 +193,14 @@ export class TicketsService {
                 name: true,
                 category: true,
                 image: true,
+                price: true,
+              },
+            },
+            product: {
+              select: {
+                id: true,
+                name: true,
+                price: true,
               },
             },
           },
@@ -194,6 +239,7 @@ export class TicketsService {
         orderItem: {
           include: {
             menuItem: true,
+            product: true,
           },
         },
       },

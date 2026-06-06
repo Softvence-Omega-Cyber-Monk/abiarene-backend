@@ -53,7 +53,7 @@ export class CreateTenantDto {
   @MinLength(3)
   name!: string;
 
-  @ApiPropertyOptional({ description: 'Tenant industry', example: 'restaurant' })
+  @ApiPropertyOptional({ description: 'Tenant industry', example: 'hardware' })
   @IsOptional()
   @IsString()
   industry?: string;
@@ -113,7 +113,7 @@ export class UpdateTenantDto {
   @MinLength(3)
   name?: string;
 
-  @ApiPropertyOptional({ description: 'Tenant industry', example: 'restaurant' })
+  @ApiPropertyOptional({ description: 'Tenant industry', example: 'supershop' })
   @IsOptional()
   @IsString()
   industry?: string;

@@ -22,6 +22,34 @@ export class TenantTablesService {
     return Math.round(value * 100) / 100;
   }
 
+  private getOrderItemUnitPrice(item: {
+    unitPrice?: number | null;
+    menuItem?: { price?: number | null } | null;
+    product?: { price?: number | null } | null;
+  }) {
+    return item.unitPrice ?? item.menuItem?.price ?? item.product?.price ?? 0;
+  }
+
+  private resolveOrderItem(item: any) {
+    const source = item.menuItem ?? item.product ?? null;
+    const itemId = item.menuItemId ?? item.productId ?? source?.id ?? item.id;
+    const name = item.itemName ?? source?.name ?? 'Unknown Item';
+    const category = item.itemCategory ?? source?.category ?? null;
+    const image = item.itemImage ?? source?.image ?? null;
+    const unitPrice = this.getOrderItemUnitPrice(item);
+
+    return {
+      itemId,
+      name,
+      category,
+      image,
+      quantity: item.quantity,
+      unitPrice,
+      lineTotal: this.toMoney(item.quantity * unitPrice),
+      sourceType: item.productId ? 'INVENTORY' : 'MENU',
+    };
+  }
+
   async create(tenantId: string, dto: CreateTablesDto) {
     try {
       const table = await this.prisma.table.create({
@@ -107,6 +135,13 @@ export class TenantTablesService {
             createdAt: true,
             items: {
               select: {
+                id: true,
+                menuItemId: true,
+                productId: true,
+                itemName: true,
+                itemCategory: true,
+                itemImage: true,
+                unitPrice: true,
                 quantity: true,
                 menuItem: {
                   select: {
@@ -115,6 +150,13 @@ export class TenantTablesService {
                     price: true,
                     image: true,
                     category: true,
+                  },
+                },
+                product: {
+                  select: {
+                    id: true,
+                    name: true,
+                    price: true,
                   },
                 },
               },
@@ -147,25 +189,27 @@ export class TenantTablesService {
 
     for (const order of table.orders) {
       for (const item of order.items) {
-        const lineTotal = item.quantity * item.menuItem.price;
-        totalAmount += lineTotal;
-        totalQuantity += item.quantity;
+        const resolvedItem = this.resolveOrderItem(item);
+        totalAmount += resolvedItem.lineTotal;
+        totalQuantity += resolvedItem.quantity;
 
-        const existing = itemMap.get(item.menuItem.id);
+        const existing = itemMap.get(resolvedItem.itemId);
         if (existing) {
-          existing.quantity += item.quantity;
-          existing.lineTotal += lineTotal;
+          existing.quantity += resolvedItem.quantity;
+          existing.lineTotal = this.toMoney(
+            existing.lineTotal + resolvedItem.lineTotal,
+          );
           continue;
         }
 
-        itemMap.set(item.menuItem.id, {
-          itemId: item.menuItem.id,
-          name: item.menuItem.name,
-          category: item.menuItem.category,
-          image: item.menuItem.image,
-          quantity: item.quantity,
-          unitPrice: item.menuItem.price,
-          lineTotal,
+        itemMap.set(resolvedItem.itemId, {
+          itemId: resolvedItem.itemId,
+          name: resolvedItem.name,
+          category: resolvedItem.category ?? '',
+          image: resolvedItem.image,
+          quantity: resolvedItem.quantity,
+          unitPrice: resolvedItem.unitPrice,
+          lineTotal: resolvedItem.lineTotal,
         });
       }
     }
@@ -195,7 +239,7 @@ export class TenantTablesService {
           0,
         ),
         totalAmount: order.items.reduce(
-          (sum, item) => sum + item.quantity * item.menuItem.price,
+          (sum, item) => sum + item.quantity * this.getOrderItemUnitPrice(item),
           0,
         ),
       })),
@@ -246,8 +290,17 @@ export class TenantTablesService {
             id: true,
             items: {
               select: {
+                id: true,
+                menuItemId: true,
+                productId: true,
+                unitPrice: true,
                 quantity: true,
                 menuItem: {
+                  select: {
+                    price: true,
+                  },
+                },
+                product: {
                   select: {
                     price: true,
                   },
@@ -271,7 +324,7 @@ export class TenantTablesService {
       orderId: order.id,
       subtotal: this.toMoney(
         order.items.reduce(
-          (sum, item) => sum + item.quantity * item.menuItem.price,
+          (sum, item) => sum + item.quantity * this.getOrderItemUnitPrice(item),
           0,
         ),
       ),

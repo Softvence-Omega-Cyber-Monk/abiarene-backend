@@ -5,6 +5,7 @@ import { Roles } from '../../common/decorators/roles.decorator.js';
 import { AuthUser } from '../../common/interfaces/auth-user.interface.js';
 import {
   CreateCashierDirectOrderDto,
+  CreateCashierInventoryOrderDto,
   CreateOrdersDto,
   DirectOrderCheckoutDto,
   ListOrdersDto,
@@ -43,6 +44,18 @@ export class OrdersController {
   ) {
     const me = this.me(user);
     return this.service.createCashierDirect(me.tenantId, me.sub, dto);
+  }
+
+  @Post('cashier-direct-inventory')
+  @Roles('cashier')
+  @ApiOperation({ summary: 'Create a direct cashier order from inventory products under your current tenant' })
+  @ApiResponse({ status: 201, description: 'Direct cashier inventory order created' })
+  createCashierDirectInventory(
+    @CurrentUser() user: AuthUser | undefined,
+    @Body() dto: CreateCashierInventoryOrderDto,
+  ) {
+    const me = this.me(user);
+    return this.service.createCashierDirectInventory(me.tenantId, me.sub, dto);
   }
 
   @Get()

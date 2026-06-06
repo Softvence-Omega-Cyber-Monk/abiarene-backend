@@ -3,9 +3,11 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import {
   CreateCashierDirectOrderDto,
+  CreateCashierInventoryOrderDto,
   CreateOrdersDto,
   DirectOrderCheckoutDto,
   ListOrdersDto,
+  InventoryOrderItemDto,
   OrderItemDto,
   UpdateOrdersDto,
 } from './orders.dto.js';
@@ -25,6 +27,7 @@ export class OrdersService {
     items: {
       include: {
         menuItem: true,
+        product: true,
       },
     },
     tickets: {
@@ -34,6 +37,7 @@ export class OrdersService {
             orderItem: {
               include: {
                 menuItem: true,
+                product: true,
               },
             },
           },
@@ -49,44 +53,43 @@ export class OrdersService {
     return Math.round(value * 100) / 100;
   }
 
-  private formatOrderListItem(order: {
-    id: string;
-    tenantId: string;
-    tableId: string | null;
-    orderType: string;
-    status: string;
-    createdBy: string;
-    createdAt: Date;
-    updatedAt: Date;
-    table: {
-      id: string;
-      tableNumber: number;
-      seatCount: number;
-      status: string;
-    } | null;
-    items: {
-      id: string;
-      menuItemId: string;
-      quantity: number;
-      notes: string | null;
-      selectedOptions: string[];
-      menuItem: {
-        id: string;
-        name: string;
-        category: string;
-        price: number;
-        image: string | null;
-      };
-    }[];
-    tickets: {
-      id: string;
-      ticketCode: string;
-      status: string;
-      createdAt: Date;
-      updatedAt: Date;
-    }[];
+  private getOrderItemUnitPrice(item: {
+    unitPrice?: number | null;
+    menuItem?: { price?: number | null } | null;
+    product?: { price?: number | null } | null;
   }) {
+    return item.unitPrice ?? item.menuItem?.price ?? item.product?.price ?? 0;
+  }
+
+  private resolveOrderItem(item: any) {
+    const source = item.menuItem ?? item.product ?? null;
+    const itemId = item.menuItemId ?? item.productId ?? source?.id ?? item.id;
+    const name = item.itemName ?? source?.name ?? 'Unknown Item';
+    const category = item.itemCategory ?? source?.category ?? null;
+    const image = item.itemImage ?? source?.image ?? null;
+    const unitPrice = this.getOrderItemUnitPrice(item);
+
+    return {
+      id: item.id,
+      itemId,
+      quantity: item.quantity,
+      notes: item.notes,
+      selectedOptions: item.selectedOptions ?? [],
+      item: {
+        id: itemId,
+        name,
+        category,
+        price: unitPrice,
+        image,
+      },
+      lineTotal: this.toMoney(item.quantity * unitPrice),
+      sourceType: item.productId ? 'INVENTORY' : 'MENU',
+    };
+  }
+
+  private formatOrderListItem(order: any) {
     const latestTicket = order.tickets[0] ?? null;
+    const items = order.items.map((item: any) => this.resolveOrderItem(item));
 
     return {
       id: order.id,
@@ -98,67 +101,17 @@ export class OrdersService {
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
       table: order.table,
-      items: order.items.map((item) => ({
-        id: item.id,
-        itemId: item.menuItemId,
-        quantity: item.quantity,
-        notes: item.notes,
-        selectedOptions: item.selectedOptions,
-        item: item.menuItem,
-      })),
+      items,
       ticket: latestTicket,
       meta: {
-        itemCount: order.items.length,
+        itemCount: items.length,
       },
     };
   }
 
-  private formatOrderHistoryItem(order: {
-    id: string;
-    tenantId: string;
-    tableId: string | null;
-    orderType: string;
-    status: string;
-    createdBy: string;
-    createdAt: Date;
-    updatedAt: Date;
-    table: {
-      id: string;
-      tableNumber: number;
-      seatCount: number;
-      status: string;
-      served?: boolean;
-    } | null;
-    items: {
-      id: string;
-      menuItemId: string;
-      quantity: number;
-      notes: string | null;
-      selectedOptions: string[];
-      menuItem: {
-        id: string;
-        name: string;
-        category: string;
-        price: number;
-        image: string | null;
-      };
-    }[];
-    tickets: {
-      id: string;
-      ticketCode: string;
-      status: string;
-      createdAt: Date;
-      updatedAt: Date;
-    }[];
-    payments: {
-      id: string;
-      amount: number;
-      method: string;
-      status: string;
-      createdAt: Date;
-    }[];
-  }) {
+  private formatOrderHistoryItem(order: any) {
     const latestTicket = order.tickets[0] ?? null;
+    const items = order.items.map((item: any) => this.resolveOrderItem(item));
 
     return {
       id: order.id,
@@ -170,22 +123,14 @@ export class OrdersService {
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
       table: order.table,
-      items: order.items.map((item) => ({
-        id: item.id,
-        itemId: item.menuItemId,
-        quantity: item.quantity,
-        notes: item.notes,
-        selectedOptions: item.selectedOptions,
-        item: item.menuItem,
-        lineTotal: item.quantity * item.menuItem.price,
-      })),
+      items,
       ticket: latestTicket,
       payments: order.payments,
       meta: {
-        itemCount: order.items.length,
-        totalQuantity: order.items.reduce((sum, item) => sum + item.quantity, 0),
+        itemCount: items.length,
+        totalQuantity: items.reduce((sum: number, item: any) => sum + item.quantity, 0),
         totalPaidAmount: order.payments.reduce(
-          (sum, payment) => sum + payment.amount,
+          (sum: number, payment: any) => sum + payment.amount,
           0,
         ),
       },
@@ -210,6 +155,10 @@ export class OrdersService {
             item: {
               select: {
                 id: true,
+                name: true,
+                category: true,
+                image: true,
+                price: true,
                 options: true,
               },
             },
@@ -248,10 +197,73 @@ export class OrdersService {
 
     return items.map((item) => ({
       menuItemId: item.itemId,
+      itemName: menuItemsById.get(item.itemId)?.name,
+      itemCategory: menuItemsById.get(item.itemId)?.category,
+      itemImage: menuItemsById.get(item.itemId)?.image ?? null,
+      unitPrice: menuItemsById.get(item.itemId)?.price ?? 0,
       quantity: item.quantity,
       notes: item.notes,
       selectedOptions: item.selectedOptions ?? [],
     }));
+  }
+
+  private async prepareInventoryOrderItems(
+    tenantId: string,
+    items: InventoryOrderItemDto[],
+  ) {
+    if (items.length === 0) {
+      throw new BadRequestException('Add at least one inventory product to create an order');
+    }
+
+    const requestedProductIds = [...new Set(items.map((item) => item.productId))];
+    const products = await this.prisma.product.findMany({
+      where: {
+        tenantId,
+        id: { in: requestedProductIds },
+      } as any,
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        stock: true,
+      },
+    });
+
+    if (products.length !== requestedProductIds.length) {
+      throw new BadRequestException('One or more inventory products were not found for this tenant');
+    }
+
+    const productById = new Map(products.map((product) => [product.id, product]));
+
+    for (const item of items) {
+      const product = productById.get(item.productId);
+      if (!product) {
+        throw new BadRequestException('One or more inventory products were not found for this tenant');
+      }
+
+      if (item.quantity <= 0) {
+        throw new BadRequestException('Quantity must be greater than zero');
+      }
+
+      if (product.stock < item.quantity) {
+        throw new BadRequestException(`Not enough stock for ${product.name}`);
+      }
+    }
+
+    return items.map((item) => {
+      const product = productById.get(item.productId)!;
+
+      return {
+        productId: product.id,
+        itemName: product.name,
+        itemCategory: 'Inventory',
+        itemImage: null,
+        unitPrice: product.price,
+        quantity: item.quantity,
+        notes: item.notes,
+        selectedOptions: [],
+      };
+    });
   }
 
   async create(tenantId: string, userId: string, dto: CreateOrdersDto) {
@@ -273,7 +285,7 @@ export class OrdersService {
         orderType: 'DINE_IN',
         createdBy: userId,
         items: {
-          create: orderItems,
+          create: orderItems as any,
         },
       },
       include: this.orderInclude,
@@ -300,7 +312,29 @@ export class OrdersService {
         orderType: 'DIRECT',
         createdBy: userId,
         items: {
-          create: orderItems,
+          create: orderItems as any,
+        },
+      },
+      include: this.orderInclude,
+    });
+
+    return this.read(tenantId, order.id);
+  }
+
+  async createCashierDirectInventory(
+    tenantId: string,
+    userId: string,
+    dto: CreateCashierInventoryOrderDto,
+  ) {
+    const orderItems = await this.prepareInventoryOrderItems(tenantId, dto.items);
+
+    const order = await this.prisma.order.create({
+      data: {
+        tenantId,
+        orderType: 'DIRECT',
+        createdBy: userId,
+        items: {
+          create: orderItems as any,
         },
       },
       include: this.orderInclude,
@@ -343,6 +377,11 @@ export class OrdersService {
             select: {
               id: true,
               menuItemId: true,
+              productId: true,
+              itemName: true,
+              itemCategory: true,
+              itemImage: true,
+              unitPrice: true,
               quantity: true,
               notes: true,
               selectedOptions: true,
@@ -353,6 +392,13 @@ export class OrdersService {
                   category: true,
                   price: true,
                   image: true,
+                },
+              },
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  price: true,
                 },
               },
             },
@@ -420,6 +466,11 @@ export class OrdersService {
             select: {
               id: true,
               menuItemId: true,
+              productId: true,
+              itemName: true,
+              itemCategory: true,
+              itemImage: true,
+              unitPrice: true,
               quantity: true,
               notes: true,
               selectedOptions: true,
@@ -430,6 +481,13 @@ export class OrdersService {
                   category: true,
                   price: true,
                   image: true,
+                },
+              },
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  price: true,
                 },
               },
             },
@@ -631,7 +689,17 @@ export class OrdersService {
         status: true,
         items: {
           select: {
+            id: true,
+            productId: true,
+            unitPrice: true,
             quantity: true,
+            product: {
+              select: {
+                id: true,
+                stock: true,
+                price: true,
+              },
+            },
             menuItem: {
               select: {
                 price: true,
@@ -670,7 +738,7 @@ export class OrdersService {
 
     const subtotal = this.toMoney(
       order.items.reduce(
-        (sum, item) => sum + item.quantity * item.menuItem.price,
+        (sum, item) => sum + item.quantity * this.getOrderItemUnitPrice(item),
         0,
       ),
     );
@@ -714,19 +782,62 @@ export class OrdersService {
 
     const totalAmount = this.toMoney(Math.max(0, subtotal - discountAmount));
 
-    const payment = await this.prisma.payment.create({
-      data: {
-        orderId: order.id,
-        tenantId,
-        amount: totalAmount,
-        status: 'COMPLETED',
-        method: dto.method,
-      },
-    });
+    const inventoryStockNeeded = new Map<string, number>();
+    for (const item of order.items) {
+      if (!item.productId) {
+        continue;
+      }
 
-    await this.prisma.order.updateMany({
-      where: { tenantId, id: order.id },
-      data: { status: 'COMPLETED' },
+      inventoryStockNeeded.set(
+        item.productId,
+        (inventoryStockNeeded.get(item.productId) ?? 0) + item.quantity,
+      );
+    }
+
+    const payment = await this.prisma.$transaction(async (tx) => {
+      for (const [productId, requiredQuantity] of inventoryStockNeeded) {
+        const currentProduct = await tx.product.findUnique({
+          where: { id: productId },
+          select: {
+            id: true,
+            stock: true,
+          },
+        });
+
+        if (!currentProduct) {
+          throw new BadRequestException('Inventory product not found for this order item');
+        }
+
+        if (currentProduct.stock < requiredQuantity) {
+          throw new BadRequestException('Not enough inventory stock to complete checkout');
+        }
+
+        await tx.product.update({
+          where: { id: currentProduct.id },
+          data: {
+            stock: {
+              decrement: requiredQuantity,
+            },
+          },
+        });
+      }
+
+      const createdPayment = await tx.payment.create({
+        data: {
+          orderId: order.id,
+          tenantId,
+          amount: totalAmount,
+          status: 'COMPLETED',
+          method: dto.method,
+        },
+      });
+
+      await tx.order.updateMany({
+        where: { tenantId, id: order.id },
+        data: { status: 'COMPLETED' },
+      });
+
+      return createdPayment;
     });
 
     await this.notifications.notifyCashierPaymentCompleted({

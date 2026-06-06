@@ -118,7 +118,7 @@ enum InventoryDeletionRequestStatus {
 model Tenant {
   id              String       @id @default(uuid())
   name            String
-  industry        String       @default("restaurant")
+  industry        String       @default("business")
   mobileLogo      String?
   tabletLogo      String?
   subscriptionFee Float        @default(0)
@@ -229,7 +229,7 @@ model Admin {
 model SubscriptionPrice {
   id          String   @id @default(uuid())
   name        String
-  industry    String   @default("restaurant")
+  industry    String   @default("business")
   description String?
   amount      Float
   currency    String   @default("USD")
@@ -261,6 +261,7 @@ model Product {
 
   tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   stockLogs StockLog[]
+  orderItems OrderItem[]
 
   @@index([tenantId])
   @@unique([sku, tenantId])
@@ -391,17 +392,25 @@ model Order {
 model OrderItem {
   id         String   @id @default(uuid())
   orderId    String
-  menuItemId String
+  menuItemId String?
+  productId  String?
+  itemName   String?
+  itemCategory String?
+  itemImage  String?
+  unitPrice  Float?
   quantity   Int      @default(1)
   notes      String?
   selectedOptions String[] @default([])
   createdAt  DateTime @default(now())
 
   order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  menuItem   MenuItem   @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  menuItem   MenuItem?  @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+  product    Product?   @relation(fields: [productId], references: [id], onDelete: SetNull)
   ticketItems TicketItem[]
 
   @@index([orderId])
+  @@index([menuItemId])
+  @@index([productId])
   @@map("order_items")
 }
 

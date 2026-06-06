@@ -52,6 +52,31 @@ export class CreateCashierDirectOrderDto {
   items!: OrderItemDto[];
 }
 
+export class InventoryOrderItemDto {
+  @ApiProperty({ description: 'Inventory product ID' })
+  @IsString()
+  productId!: string;
+
+  @ApiProperty({ description: 'Quantity', example: 2 })
+  @Type(() => Number)
+  @IsInt()
+  quantity!: number;
+
+  @ApiPropertyOptional({ description: 'Optional notes for this inventory line item' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+export class CreateCashierInventoryOrderDto {
+  @ApiProperty({ type: [InventoryOrderItemDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => InventoryOrderItemDto)
+  items!: InventoryOrderItemDto[];
+}
+
 export class DirectOrderCheckoutDto {
   @ApiProperty({
     enum: ['CASH', 'CARD'],

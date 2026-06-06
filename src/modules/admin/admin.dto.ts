@@ -59,7 +59,7 @@ export class CreateSubscriptionPriceDto {
   @IsString()
   name!: string;
 
-  @ApiPropertyOptional({ example: 'restaurant', default: 'restaurant' })
+  @ApiPropertyOptional({ example: 'supershop', default: 'business' })
   @IsOptional()
   @IsString()
   industry?: string;
