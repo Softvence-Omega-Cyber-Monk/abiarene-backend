@@ -28,12 +28,104 @@ export class TenantSubscriptionService {
     private readonly notifications: NotificationsService,
   ) {}
 
+  private toMoney(value: number) {
+    return Math.round(value * 100) / 100;
+  }
+
   private buildHostedCallbackBaseUrl(callbackBaseUrl?: string | null) {
     if (!callbackBaseUrl) {
       return null;
     }
 
     return callbackBaseUrl.replace(/\/+$/, '');
+  }
+
+  private normalizeVoucherCode(code?: string | null) {
+    return code?.trim().toUpperCase() ?? null;
+  }
+
+  private async releaseVoucherReservation(paymentId: string, voucherId?: string | null) {
+    if (!voucherId) {
+      return;
+    }
+
+    await this.prisma.subscriptionVoucher.updateMany({
+      where: {
+        id: voucherId,
+        reservedByPaymentId: paymentId,
+        usedAt: null,
+      },
+      data: {
+        reservedByPaymentId: null,
+      },
+    });
+  }
+
+  private async markVoucherUsed(
+    paymentId: string,
+    userId: string,
+    voucherId?: string | null,
+  ) {
+    if (!voucherId) {
+      return;
+    }
+
+    await this.prisma.subscriptionVoucher.updateMany({
+      where: {
+        id: voucherId,
+        reservedByPaymentId: paymentId,
+        usedAt: null,
+      },
+      data: {
+        usedAt: new Date(),
+        usedByUserId: userId,
+        usedInPaymentId: paymentId,
+      },
+    });
+  }
+
+  private async findVoucherForPayment(tenantId: string, voucherCode?: string) {
+    const normalizedVoucherCode = this.normalizeVoucherCode(voucherCode);
+    if (!normalizedVoucherCode) {
+      return null;
+    }
+
+    const voucher = await this.prisma.subscriptionVoucher.findFirst({
+      where: {
+        tenantId,
+        code: normalizedVoucherCode,
+        isActive: true,
+        usedAt: null,
+      },
+      select: {
+        id: true,
+        code: true,
+        amountOff: true,
+        expiresAt: true,
+        reservedByPaymentId: true,
+      },
+    });
+
+    if (!voucher) {
+      throw new BadRequestException('Subscription voucher not found for this tenant');
+    }
+
+    if (voucher.expiresAt && voucher.expiresAt.getTime() < Date.now()) {
+      throw new BadRequestException('Subscription voucher has expired');
+    }
+
+    if (voucher.reservedByPaymentId) {
+      const reservedPayment = await this.prisma.subscriptionPayment.findUnique({
+        where: { id: voucher.reservedByPaymentId },
+        select: { status: true },
+      });
+
+      if (reservedPayment?.status === 'PENDING') {
+        throw new BadRequestException('Subscription voucher is already reserved for another payment');
+      }
+    }
+
+    return voucher;
   }
 
   private async activateTenantSubscription(tenantId: string) {
@@ -80,6 +172,7 @@ export class TenantSubscriptionService {
         id: true,
         name: true,
         subscriptionFee: true,
+        startsWithFreeTrial: true,
         status: true,
         subscriptionStatus: true,
         subscriptionStartAt: true,
@@ -128,6 +221,22 @@ export class TenantSubscriptionService {
       },
     ].filter((provider) => provider.configured);
 
+    const availableVouchers = await this.prisma.subscriptionVoucher.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+        usedAt: null,
+        OR: [{ expiresAt: null }, { expiresAt: { gte: new Date() } }],
+      },
+      orderBy: [{ expiresAt: 'asc' }, { createdAt: 'desc' }],
+      select: {
+        id: true,
+        code: true,
+        amountOff: true,
+        expiresAt: true,
+      },
+    });
+
     return {
       tenant,
       subscription: {
@@ -140,12 +249,37 @@ export class TenantSubscriptionService {
         endAt: tenant.subscriptionEndAt,
         requiresPayment:
           tenant.subscriptionStatus !== 'ACTIVE' || isExpired,
+        isFreeTrial:
+          tenant.startsWithFreeTrial &&
+          !!tenant.subscriptionEndAt &&
+          tenant.subscriptionEndAt.getTime() >= Date.now(),
       },
       paymentOptions: availableProviders,
+      vouchers: availableVouchers,
       meta: {
         paymentOptionCount: availableProviders.length,
+        voucherCount: availableVouchers.length,
       },
     };
+  }
+
+  listAvailableVouchers(tenantId: string) {
+    return this.prisma.subscriptionVoucher.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+        usedAt: null,
+        OR: [{ expiresAt: null }, { expiresAt: { gte: new Date() } }],
+      },
+      orderBy: [{ expiresAt: 'asc' }, { createdAt: 'desc' }],
+      select: {
+        id: true,
+        code: true,
+        amountOff: true,
+        expiresAt: true,
+        createdAt: true,
+      },
+    });
   }
 
   async initiateSubscriptionPayment(
@@ -200,42 +334,53 @@ export class TenantSubscriptionService {
       );
     }
 
-    if (!this.paymentProviders.isConfigured(dto.provider)) {
-      throw new BadRequestException(
-        `Payment provider "${dto.provider}" is not configured`,
-      );
-    }
+    const voucher = await this.findVoucherForPayment(tenantId, dto.voucherCode);
+    const originalAmount = tenant.subscriptionFee;
+    const discountAmount = voucher
+      ? Math.min(voucher.amountOff, originalAmount)
+      : 0;
+    const payableAmount = this.toMoney(
+      Math.max(0, originalAmount - discountAmount),
+    );
 
-    if (dto.provider === 'mtnMomo' && !dto.payerPhoneNumber) {
-      throw new BadRequestException(
-        'payerPhoneNumber is required for MTN MoMo payments',
-      );
-    }
+    if (payableAmount > 0) {
+      if (!this.paymentProviders.isConfigured(dto.provider)) {
+        throw new BadRequestException(
+          `Payment provider "${dto.provider}" is not configured`,
+        );
+      }
 
-    if (
-      dto.provider === 'stripe' &&
-      dto.currency &&
-      !this.stripeSupportedCurrencies.has(dto.currency)
-    ) {
-      throw new BadRequestException(
-        `Currency "${dto.currency}" is not supported for Stripe`,
-      );
-    }
+      if (dto.provider === 'mtnMomo' && !dto.payerPhoneNumber) {
+        throw new BadRequestException(
+          'payerPhoneNumber is required for MTN MoMo payments',
+        );
+      }
 
-    if (
-      dto.provider === 'paystack' &&
-      dto.currency &&
-      !this.paystackSupportedCurrencies.has(dto.currency)
-    ) {
-      throw new BadRequestException(
-        `Currency "${dto.currency}" is not supported for Paystack`,
-      );
-    }
+      if (
+        dto.provider === 'stripe' &&
+        dto.currency &&
+        !this.stripeSupportedCurrencies.has(dto.currency)
+      ) {
+        throw new BadRequestException(
+          `Currency "${dto.currency}" is not supported for Stripe`,
+        );
+      }
 
-    if (dto.currency && !['stripe', 'paystack'].includes(dto.provider)) {
-      throw new BadRequestException(
-        'Currency selection is currently supported only for Stripe and Paystack payments',
-      );
+      if (
+        dto.provider === 'paystack' &&
+        dto.currency &&
+        !this.paystackSupportedCurrencies.has(dto.currency)
+      ) {
+        throw new BadRequestException(
+          `Currency "${dto.currency}" is not supported for Paystack`,
+        );
+      }
+
+      if (dto.currency && !['stripe', 'paystack'].includes(dto.provider)) {
+        throw new BadRequestException(
+          'Currency selection is currently supported only for Stripe and Paystack payments',
+        );
+      }
     }
 
     const paymentCurrency =
@@ -267,28 +412,111 @@ export class TenantSubscriptionService {
           ? 'GODADDY_PAYMENTS'
           : dto.provider.toUpperCase();
 
-    const payment = await this.prisma.subscriptionPayment.create({
-      data: {
-        tenantId,
-        userId,
-        provider: providerValue,
-        amount: tenant.subscriptionFee,
-        currency: paymentCurrency,
-        status: 'PENDING',
-        reference,
-      } as any,
-      select: {
-        id: true,
-        tenantId: true,
-        userId: true,
-        provider: true,
-        amount: true,
-        currency: true,
-        status: true,
-        reference: true,
-        createdAt: true,
-      },
+    const payment = await this.prisma.$transaction(async (tx) => {
+      const createdPayment = await tx.subscriptionPayment.create({
+        data: {
+          tenantId,
+          userId,
+          voucherId: voucher?.id,
+          provider: providerValue,
+          originalAmount,
+          discountAmount,
+          amount: payableAmount,
+          currency: paymentCurrency,
+          status: payableAmount === 0 ? 'COMPLETED' : 'PENDING',
+          reference,
+          completedAt: payableAmount === 0 ? new Date() : null,
+        } as any,
+        select: {
+          id: true,
+          tenantId: true,
+          userId: true,
+          voucherId: true,
+          provider: true,
+          originalAmount: true,
+          discountAmount: true,
+          amount: true,
+          currency: true,
+          status: true,
+          reference: true,
+          createdAt: true,
+        },
+      });
+
+      if (voucher) {
+        const reserved = await tx.subscriptionVoucher.updateMany({
+          where: {
+            id: voucher.id,
+            isActive: true,
+            usedAt: null,
+            reservedByPaymentId: voucher.reservedByPaymentId ?? null,
+          },
+          data: {
+            reservedByPaymentId: createdPayment.id,
+          },
+        });
+
+        if (reserved.count === 0) {
+          throw new BadRequestException('Subscription voucher is no longer available');
+        }
+
+        if (payableAmount === 0) {
+          await tx.subscriptionVoucher.update({
+            where: { id: voucher.id },
+            data: {
+              usedAt: new Date(),
+              usedByUserId: userId,
+              usedInPaymentId: createdPayment.id,
+            },
+          });
+        }
+      }
+
+      return createdPayment;
     });
+
+    if (payableAmount === 0) {
+      await this.activateTenantSubscription(tenantId);
+      const tenantName = await this.getTenantName(tenantId);
+      await this.notifications.notifyTenantSubscriptionPaid({
+        tenantId,
+        tenantName,
+        provider: 'Voucher',
+        amount: payment.amount,
+        currency: payment.currency,
+        reference: payment.reference,
+      });
+
+      return {
+        payment: {
+          ...payment,
+          provider: 'voucher',
+        },
+        tenant: {
+          id: tenant.id,
+          name: tenant.name,
+        },
+        subscription: {
+          fee: tenant.subscriptionFee,
+          originalAmount,
+          discountAmount,
+          payableAmount,
+          status: 'ACTIVE',
+        },
+        voucher: voucher
+          ? {
+              code: voucher.code,
+              amountOff: discountAmount,
+            }
+          : null,
+        checkout: null,
+        nextStep: {
+          provider: 'voucher',
+          message:
+            'The subscription voucher fully covered the payment. Subscription was activated immediately.',
+        },
+      };
+    }
 
     let checkout: null | Record<string, unknown> = null;
     let nextStepMessage =
@@ -296,7 +524,7 @@ export class TenantSubscriptionService {
 
     if (dto.provider === 'stripe') {
       const session = await this.paymentProviders.createStripeCheckoutSession({
-        amount: tenant.subscriptionFee,
+        amount: payableAmount,
         currency: paymentCurrency,
         tenantName: tenant.name,
         reference,
@@ -319,7 +547,7 @@ export class TenantSubscriptionService {
         'Redirect the manager to the hosted Stripe checkout URL and then check the payment status by reference.';
     } else if (dto.provider === 'mtnMomo') {
       const requestToPay = await this.paymentProviders.createMtnMomoRequestToPay({
-        amount: tenant.subscriptionFee,
+        amount: payableAmount,
         phoneNumber: dto.payerPhoneNumber!,
         tenantName: tenant.name,
         reference,
@@ -341,7 +569,7 @@ export class TenantSubscriptionService {
         'Ask the manager to approve the MTN MoMo request on the mobile device, then check the payment status by reference.';
     } else if (dto.provider === 'paystack') {
       const transaction = await this.paymentProviders.createPaystackTransaction({
-        amount: tenant.subscriptionFee,
+        amount: payableAmount,
         currency: paymentCurrency,
         email: managerUser.email,
         tenantName: tenant.name,
@@ -376,11 +604,20 @@ export class TenantSubscriptionService {
       },
       subscription: {
         fee: tenant.subscriptionFee,
+        originalAmount,
+        discountAmount,
+        payableAmount,
         status:
           isExpired && tenant.subscriptionStatus === 'ACTIVE'
             ? 'EXPIRED'
             : tenant.subscriptionStatus,
       },
+      voucher: voucher
+        ? {
+            code: voucher.code,
+            amountOff: discountAmount,
+          }
+        : null,
       checkout,
       nextStep: {
         provider: dto.provider,
@@ -396,7 +633,10 @@ export class TenantSubscriptionService {
         id: true,
         tenantId: true,
         userId: true,
+        voucherId: true,
         provider: true,
+        originalAmount: true,
+        discountAmount: true,
         amount: true,
         currency: true,
         status: true,
@@ -431,6 +671,7 @@ export class TenantSubscriptionService {
           },
         });
 
+        await this.markVoucherUsed(payment.id, payment.userId, payment.voucherId);
         await this.activateTenantSubscription(tenantId);
         const tenantName = await this.getTenantName(tenantId);
         await this.notifications.notifyTenantSubscriptionPaid({
@@ -442,6 +683,16 @@ export class TenantSubscriptionService {
           reference: payment.reference,
         });
 
+        return this.getSubscriptionPaymentStatus(tenantId, reference);
+      }
+
+      if (session.status === 'expired' && payment.status === 'PENDING') {
+        await this.prisma.subscriptionPayment.update({
+          where: { id: payment.id },
+          data: { status: 'FAILED' },
+        });
+
+        await this.releaseVoucherReservation(payment.id, payment.voucherId);
         return this.getSubscriptionPaymentStatus(tenantId, reference);
       }
 
@@ -468,6 +719,7 @@ export class TenantSubscriptionService {
           },
         });
 
+        await this.markVoucherUsed(payment.id, payment.userId, payment.voucherId);
         await this.activateTenantSubscription(tenantId);
         const tenantName = await this.getTenantName(tenantId);
         await this.notifications.notifyTenantSubscriptionPaid({
@@ -493,6 +745,7 @@ export class TenantSubscriptionService {
           data: { status: 'FAILED' },
         });
 
+        await this.releaseVoucherReservation(payment.id, payment.voucherId);
         return this.getSubscriptionPaymentStatus(tenantId, reference);
       }
 
@@ -525,6 +778,7 @@ export class TenantSubscriptionService {
           },
         });
 
+        await this.markVoucherUsed(payment.id, payment.userId, payment.voucherId);
         await this.activateTenantSubscription(tenantId);
         const tenantName = await this.getTenantName(tenantId);
         await this.notifications.notifyTenantSubscriptionPaid({
@@ -548,6 +802,7 @@ export class TenantSubscriptionService {
           data: { status: 'FAILED' },
         });
 
+        await this.releaseVoucherReservation(payment.id, payment.voucherId);
         return this.getSubscriptionPaymentStatus(tenantId, reference);
       }
 

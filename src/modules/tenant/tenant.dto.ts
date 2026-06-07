@@ -74,6 +74,14 @@ export class CreateTenantDto {
   subscriptionFee?: number;
 
   @ApiPropertyOptional({
+    description: 'Start the tenant with a 7-day free trial before subscription payment is required',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  startWithFreeTrial?: boolean;
+
+  @ApiPropertyOptional({
     description: 'Create the manager role for this tenant',
     default: false,
   })
@@ -227,4 +235,12 @@ export class InitiateSubscriptionPaymentDto {
   @IsOptional()
   @IsIn(SUBSCRIPTION_PAYMENT_SUPPORTED_CURRENCIES)
   currency?: (typeof SUBSCRIPTION_PAYMENT_SUPPORTED_CURRENCIES)[number];
+
+  @ApiPropertyOptional({
+    description: 'Tenant-scoped subscription voucher code created by admin',
+    example: 'TENANT-OFFER-100',
+  })
+  @IsOptional()
+  @IsString()
+  voucherCode?: string;
 }

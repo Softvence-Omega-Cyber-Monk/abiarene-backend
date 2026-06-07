@@ -86,3 +86,29 @@ export class CreateSubscriptionPriceDto {
 }
 
 export class UpdateSubscriptionPriceDto extends PartialType(CreateSubscriptionPriceDto) {}
+
+export class CreateSubscriptionVoucherDto {
+  @ApiProperty({ example: 'TENANT-OFFER-100' })
+  @IsString()
+  code!: string;
+
+  @ApiProperty({ example: 25 })
+  @IsNumber()
+  @Min(0)
+  amountOff!: number;
+
+  @ApiPropertyOptional({
+    example: '2026-12-31T23:59:59.000Z',
+    description: 'Optional voucher expiry date',
+  })
+  @IsOptional()
+  @IsString()
+  expiresAt?: string;
+
+  @ApiPropertyOptional({ example: true, default: true })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
+
+export class UpdateSubscriptionVoucherDto extends PartialType(CreateSubscriptionVoucherDto) {}

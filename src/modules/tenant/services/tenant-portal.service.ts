@@ -47,6 +47,10 @@ export class TenantPortalService {
     return this.subscriptionService.getSubscriptionDetails(tenantId);
   }
 
+  listSubscriptionVouchers(tenantId: string) {
+    return this.subscriptionService.listAvailableVouchers(tenantId);
+  }
+
   initiateSubscriptionPayment(
     tenantId: string,
     userId: string,

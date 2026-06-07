@@ -9,7 +9,9 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 import {
   AdminSignupDto,
   CreateSubscriptionPriceDto,
+  CreateSubscriptionVoucherDto,
   UpdateSubscriptionPriceDto,
+  UpdateSubscriptionVoucherDto,
 } from './admin.dto.js';
 
 @Injectable()
@@ -294,6 +296,140 @@ export class AdminService {
     }
 
     await this.prisma.subscriptionPrice.delete({
+      where: { id },
+    });
+
+    return {
+      success: true,
+      id,
+    };
+  }
+
+  async createSubscriptionVoucher(
+    adminId: string,
+    tenantId: string,
+    dto: CreateSubscriptionVoucherDto,
+  ) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { id: true },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    const expiresAt = dto.expiresAt ? new Date(dto.expiresAt) : undefined;
+    if (expiresAt && Number.isNaN(expiresAt.getTime())) {
+      throw new BadRequestException('Invalid voucher expiry date');
+    }
+
+    return this.prisma.subscriptionVoucher.create({
+      data: {
+        tenantId,
+        code: dto.code.trim().toUpperCase(),
+        amountOff: this.toMoney(dto.amountOff),
+        isActive: dto.isActive ?? true,
+        expiresAt,
+        createdById: adminId,
+      },
+      select: {
+        id: true,
+        tenantId: true,
+        code: true,
+        amountOff: true,
+        isActive: true,
+        expiresAt: true,
+        usedAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  listSubscriptionVouchers(tenantId: string) {
+    return this.prisma.subscriptionVoucher.findMany({
+      where: { tenantId },
+      orderBy: [{ isActive: 'desc' }, { createdAt: 'desc' }],
+      select: {
+        id: true,
+        tenantId: true,
+        code: true,
+        amountOff: true,
+        isActive: true,
+        expiresAt: true,
+        usedAt: true,
+        usedByUserId: true,
+        usedInPaymentId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  async updateSubscriptionVoucher(
+    id: string,
+    dto: UpdateSubscriptionVoucherDto,
+  ) {
+    const existing = await this.prisma.subscriptionVoucher.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Subscription voucher not found');
+    }
+
+    const expiresAt = dto.expiresAt !== undefined
+      ? dto.expiresAt
+        ? new Date(dto.expiresAt)
+        : null
+      : undefined;
+
+    if (
+      expiresAt instanceof Date &&
+      Number.isNaN(expiresAt.getTime())
+    ) {
+      throw new BadRequestException('Invalid voucher expiry date');
+    }
+
+    return this.prisma.subscriptionVoucher.update({
+      where: { id },
+      data: {
+        ...(dto.code !== undefined ? { code: dto.code.trim().toUpperCase() } : {}),
+        ...(dto.amountOff !== undefined
+          ? { amountOff: this.toMoney(dto.amountOff) }
+          : {}),
+        ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+        ...(expiresAt !== undefined ? { expiresAt } : {}),
+      },
+      select: {
+        id: true,
+        tenantId: true,
+        code: true,
+        amountOff: true,
+        isActive: true,
+        expiresAt: true,
+        usedAt: true,
+        usedByUserId: true,
+        usedInPaymentId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  async deleteSubscriptionVoucher(id: string) {
+    const existing = await this.prisma.subscriptionVoucher.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Subscription voucher not found');
+    }
+
+    await this.prisma.subscriptionVoucher.delete({
       where: { id },
     });
 

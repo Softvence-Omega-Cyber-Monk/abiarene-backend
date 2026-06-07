@@ -149,6 +149,14 @@ export class TenantPortalController {
     return this.service.getSubscription(this.tenantId(user));
   }
 
+  @Get('subscription/vouchers')
+  @Roles('manager', 'supervisor')
+  @ApiOperation({ summary: 'List available subscription vouchers for the current tenant' })
+  @ApiResponse({ status: 200, description: 'Subscription vouchers retrieved' })
+  listSubscriptionVouchers(@CurrentUser() user: AuthUser | undefined) {
+    return this.service.listSubscriptionVouchers(this.tenantId(user));
+  }
+
   @Get(':tenantId/roles')
   @Roles('manager', 'supervisor', 'admin')
   @ApiOperation({ summary: 'List roles under your own tenant scope' })

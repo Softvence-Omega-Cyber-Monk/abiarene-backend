@@ -81,6 +81,11 @@ export class TenantService {
         );
       }
 
+      const now = new Date();
+      const freeTrialEndAt = dto.startWithFreeTrial
+        ? new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+        : null;
+
       const tenant = await tx.tenant.create({
         data: {
           name: dto.name,
@@ -88,9 +93,12 @@ export class TenantService {
           mobileLogo: dto.mobileLogo,
           tabletLogo: dto.tabletLogo,
           subscriptionFee: dto.subscriptionFee ?? 0,
+          startsWithFreeTrial: dto.startWithFreeTrial ?? false,
           status: 'ACTIVE',
-          subscriptionStatus: 'PENDING',
-          lastSync: new Date(),
+          subscriptionStatus: dto.startWithFreeTrial ? 'ACTIVE' : 'PENDING',
+          subscriptionStartAt: dto.startWithFreeTrial ? now : null,
+          subscriptionEndAt: freeTrialEndAt,
+          lastSync: now,
           roles: {
             create: roleCreates,
           },

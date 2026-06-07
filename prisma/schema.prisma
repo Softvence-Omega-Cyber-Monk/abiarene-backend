@@ -122,6 +122,7 @@ model Tenant {
   mobileLogo      String?
   tabletLogo      String?
   subscriptionFee Float        @default(0)
+  startsWithFreeTrial Boolean  @default(false)
   status          TenantStatus @default(ACTIVE)
   subscriptionStatus SubscriptionStatus @default(PENDING)
   subscriptionStartAt DateTime?
@@ -140,6 +141,7 @@ model Tenant {
   tickets         Ticket[]
   payments        Payment[]
   subscriptionPayments SubscriptionPayment[]
+  subscriptionVouchers SubscriptionVoucher[]
   discounts       Discount[]
   supportTickets  SupportTicket[]
   notifications   Notification[]
@@ -202,6 +204,7 @@ model User {
   notifications Notification[]
   requestedInventoryDeletionRequests InventoryDeletionRequest[] @relation("RequestedInventoryDeletionRequests")
   approvedInventoryDeletionRequests InventoryDeletionRequest[] @relation("ApprovedInventoryDeletionRequests")
+  usedSubscriptionVouchers SubscriptionVoucher[] @relation("UsedSubscriptionVouchers")
 
   @@unique([email])
   @@index([tenantId])
@@ -222,6 +225,7 @@ model Admin {
   updatedAt DateTime @updatedAt
   notifications Notification[]
   subscriptionPrices SubscriptionPrice[]
+  createdSubscriptionVouchers SubscriptionVoucher[]
 
   @@map("admins")
 }
@@ -472,7 +476,10 @@ model SubscriptionPayment {
   id               String                      @id @default(uuid())
   tenantId         String
   userId           String
+  voucherId        String?
   provider         SubscriptionPaymentProvider
+  originalAmount   Float?
+  discountAmount   Float                       @default(0)
   amount           Float
   currency         String                      @default("USD")
   status           SubscriptionPaymentStatus   @default(PENDING)
@@ -484,10 +491,41 @@ model SubscriptionPayment {
 
   tenant           Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user             User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  voucher          SubscriptionVoucher?        @relation("SubscriptionPaymentVoucher", fields: [voucherId], references: [id], onDelete: SetNull)
+  consumedVoucher  SubscriptionVoucher?        @relation("SubscriptionVoucherUsedPayment")
 
   @@index([tenantId])
   @@index([userId])
+  @@index([voucherId])
   @@map("subscription_payments")
+}
+
+model SubscriptionVoucher {
+  id                 String               @id @default(uuid())
+  tenantId           String
+  code               String
+  amountOff          Float
+  isActive           Boolean              @default(true)
+  expiresAt          DateTime?
+  reservedByPaymentId String?
+  usedAt             DateTime?
+  usedByUserId       String?
+  usedInPaymentId    String?              @unique
+  createdById        String
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  tenant             Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy          Admin                @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  usedBy             User?                @relation("UsedSubscriptionVouchers", fields: [usedByUserId], references: [id], onDelete: SetNull)
+  usedInPayment      SubscriptionPayment? @relation("SubscriptionVoucherUsedPayment", fields: [usedInPaymentId], references: [id], onDelete: SetNull)
+  payments           SubscriptionPayment[] @relation("SubscriptionPaymentVoucher")
+
+  @@unique([tenantId, code])
+  @@index([tenantId, isActive])
+  @@index([createdById])
+  @@index([usedByUserId])
+  @@map("subscription_vouchers")
 }
 
 // ─── Discount ───────────────────────────────────────────────────

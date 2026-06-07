@@ -22,7 +22,9 @@ import { AdminService } from './admin.service.js';
 import {
   AdminSignupDto,
   CreateSubscriptionPriceDto,
+  CreateSubscriptionVoucherDto,
   UpdateSubscriptionPriceDto,
+  UpdateSubscriptionVoucherDto,
 } from './admin.dto.js';
 
 @ApiTags('Admin')
@@ -105,5 +107,49 @@ export class AdminController {
   ) {
     if (!user?.sub) throw new UnauthorizedException('Missing admin context');
     return this.adminService.deleteSubscriptionPrice(id);
+  }
+
+  @Post('tenants/:tenantId/subscription-vouchers')
+  @Roles('admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create a tenant-scoped subscription voucher' })
+  @ApiResponse({ status: 201, description: 'Subscription voucher created' })
+  createSubscriptionVoucher(
+    @CurrentUser() user: AuthUser | undefined,
+    @Param('tenantId') tenantId: string,
+    @Body() dto: CreateSubscriptionVoucherDto,
+  ) {
+    if (!user?.sub) throw new UnauthorizedException('Missing admin context');
+    return this.adminService.createSubscriptionVoucher(user.sub, tenantId, dto);
+  }
+
+  @Get('tenants/:tenantId/subscription-vouchers')
+  @Roles('admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List tenant-scoped subscription vouchers' })
+  @ApiResponse({ status: 200, description: 'Subscription vouchers retrieved' })
+  listSubscriptionVouchers(@Param('tenantId') tenantId: string) {
+    return this.adminService.listSubscriptionVouchers(tenantId);
+  }
+
+  @Patch('subscription-vouchers/:id')
+  @Roles('admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update a tenant-scoped subscription voucher' })
+  @ApiResponse({ status: 200, description: 'Subscription voucher updated' })
+  updateSubscriptionVoucher(
+    @Param('id') id: string,
+    @Body() dto: UpdateSubscriptionVoucherDto,
+  ) {
+    return this.adminService.updateSubscriptionVoucher(id, dto);
+  }
+
+  @Delete('subscription-vouchers/:id')
+  @Roles('admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete a tenant-scoped subscription voucher' })
+  @ApiResponse({ status: 200, description: 'Subscription voucher deleted' })
+  deleteSubscriptionVoucher(@Param('id') id: string) {
+    return this.adminService.deleteSubscriptionVoucher(id);
   }
 }
