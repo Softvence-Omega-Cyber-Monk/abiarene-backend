@@ -108,11 +108,7 @@ export class AuthService {
     };
   }
 
-  async logout(user: {
-    sub: string;
-    role: string;
-    tenantId?: string;
-  }) {
+  async logout(user: { sub: string; role: string; tenantId?: string }) {
     if (user.role?.toUpperCase() === RoleName.ADMIN) {
       await this.prisma.admin.update({
         where: { id: user.sub },

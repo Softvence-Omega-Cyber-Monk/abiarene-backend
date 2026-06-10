@@ -1,6 +1,7 @@
 import {
   IsEmail,
   IsBoolean,
+  IsIn,
   IsNumber,
   IsOptional,
   Matches,
@@ -8,6 +9,7 @@ import {
   IsString,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { INDUSTRY_TYPES, type IndustryType } from '../tenant/tenant.dto.js';
 
 export class AdminSignupDto {
   @ApiProperty({ description: 'Admin email', example: 'admin@example.com' })
@@ -59,10 +61,14 @@ export class CreateSubscriptionPriceDto {
   @IsString()
   name!: string;
 
-  @ApiPropertyOptional({ example: 'supershop', default: 'business' })
+  @ApiPropertyOptional({
+    enum: INDUSTRY_TYPES,
+    example: 'SUPERMARKET',
+    default: 'OTHER',
+  })
   @IsOptional()
-  @IsString()
-  industry?: string;
+  @IsIn(INDUSTRY_TYPES)
+  industry?: IndustryType;
 
   @ApiPropertyOptional({ example: 'Base monthly subscription price' })
   @IsOptional()

@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 import {
   CreateUsersDto,
   ListUsersDto,
+  ResetUserCredentialsDto,
   UpdateMyProfileDto,
   UpdateUsersDto,
 } from './users.dto.js';
@@ -59,7 +60,12 @@ export class UsersService {
     });
   }
 
-  async updateForTenant(tenantId: string, id: string, dto: UpdateUsersDto) {
+  async updateForTenant(
+    tenantId: string,
+    id: string,
+    dto: UpdateUsersDto,
+    actorRole?: string,
+  ) {
     const existingUser = await this.prisma.user.findFirst({
       where: { id, tenantId },
       select: {
@@ -77,6 +83,15 @@ export class UsersService {
 
     if (!existingUser.role?.name) {
       throw new BadRequestException('User role is not assigned');
+    }
+
+    if (
+      actorRole?.toUpperCase() === 'MANAGER' &&
+      (dto.email !== undefined || dto.pin !== undefined)
+    ) {
+      throw new BadRequestException(
+        'Managers cannot reset user email or PIN',
+      );
     }
 
     const role = await this.validateRole(
@@ -98,6 +113,34 @@ export class UsersService {
       },
     });
     return this.readForTenant(tenantId, id);
+  }
+
+  async resetStaffCredentials(
+    tenantId: string,
+    id: string,
+    dto: ResetUserCredentialsDto,
+  ) {
+    return this.resetUserCredentialsForRoles(
+      tenantId,
+      id,
+      dto,
+      ['MANAGER', 'CASHIER', 'SERVER', 'KITCHEN'],
+      'Supervisor',
+    );
+  }
+
+  async resetSupervisorCredentials(
+    tenantId: string,
+    id: string,
+    dto: ResetUserCredentialsDto,
+  ) {
+    return this.resetUserCredentialsForRoles(
+      tenantId,
+      id,
+      dto,
+      ['SUPERVISOR'],
+      'Admin',
+    );
   }
 
   async updateMyProfile(
@@ -139,6 +182,56 @@ export class UsersService {
 
   deleteForTenant(tenantId: string, id: string) {
     return this.prisma.user.deleteMany({ where: { id, tenantId } });
+  }
+
+  private async resetUserCredentialsForRoles(
+    tenantId: string,
+    id: string,
+    dto: ResetUserCredentialsDto,
+    allowedRoles: string[],
+    actorLabel: string,
+  ) {
+    if (dto.email === undefined && dto.pin === undefined) {
+      throw new BadRequestException(
+        'Provide at least one of email or pin to reset',
+      );
+    }
+
+    const existingUser = await this.prisma.user.findFirst({
+      where: { id, tenantId },
+      select: {
+        id: true,
+        email: true,
+        role: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!existingUser) {
+      throw new BadRequestException('User not found for this tenant');
+    }
+
+    const roleName = existingUser.role?.name?.toUpperCase();
+    if (!roleName || !allowedRoles.includes(roleName)) {
+      throw new BadRequestException(
+        `${actorLabel} can only reset ${allowedRoles.join(', ')} credentials`,
+      );
+    }
+
+    await this.ensureEmailAvailable(dto.email ?? existingUser.email, id);
+
+    await this.prisma.user.update({
+      where: { id },
+      data: {
+        ...(dto.email !== undefined ? { email: dto.email } : {}),
+        ...(dto.pin !== undefined ? { pin: dto.pin } : {}),
+      },
+    });
+
+    return this.readForTenant(tenantId, id);
   }
 
   private async validateRole(tenantId: string, roleName: StaffRoleName) {

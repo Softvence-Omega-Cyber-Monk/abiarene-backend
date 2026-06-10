@@ -22,6 +22,7 @@ import { AuthUser } from '../../common/interfaces/auth-user.interface.js';
 import {
   CreateUsersDto,
   ListUsersDto,
+  ResetUserCredentialsDto,
   UpdateMyProfileDto,
   UpdateUsersDto,
 } from './users.dto.js';
@@ -45,6 +46,14 @@ export class UsersController {
       limit: parseInt(limit, 10),
       search,
     };
+  }
+
+  private currentRole(user?: AuthUser) {
+    if (!user?.role) {
+      throw new UnauthorizedException('Missing user context');
+    }
+
+    return user.role;
   }
 
   @Post()
@@ -121,7 +130,24 @@ export class UsersController {
     @Param('id') id: string,
     @Body() dto: UpdateUsersDto,
   ) {
-    return this.usersService.updateForTenant(this.tenantId(user), id, dto);
+    return this.usersService.updateForTenant(
+      this.tenantId(user),
+      id,
+      dto,
+      this.currentRole(user),
+    );
+  }
+
+  @Patch(':id/reset-credentials')
+  @Roles('supervisor')
+  @ApiOperation({ summary: 'Supervisor reset manager, cashier, server, or kitchen email and pin under current tenant' })
+  @ApiResponse({ status: 200, description: 'User credentials reset' })
+  resetStaffCredentials(
+    @CurrentUser() user: AuthUser | undefined,
+    @Param('id') id: string,
+    @Body() dto: ResetUserCredentialsDto,
+  ) {
+    return this.usersService.resetStaffCredentials(this.tenantId(user), id, dto);
   }
 
   @Delete(':id')
@@ -169,6 +195,18 @@ export class UsersController {
     @Body() dto: UpdateUsersDto,
   ) {
     return this.usersService.updateForTenant(tenantId, id, dto);
+  }
+
+  @Patch('tenant/:tenantId/:id/reset-supervisor-credentials')
+  @Roles('admin')
+  @ApiOperation({ summary: 'Admin reset supervisor email and pin under any tenant' })
+  @ApiResponse({ status: 200, description: 'Supervisor credentials reset' })
+  resetSupervisorCredentials(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Body() dto: ResetUserCredentialsDto,
+  ) {
+    return this.usersService.resetSupervisorCredentials(tenantId, id, dto);
   }
 
   @Delete('tenant/:tenantId/:id')

@@ -113,12 +113,25 @@ enum InventoryDeletionRequestStatus {
   REJECTED
 }
 
+enum IndustryType {
+  RESTAURANT
+  BAR
+  SUPERMARKET
+  HARDWARE_STORE
+  WINE_SHOP
+  CLOTHING_AND_FASHION_SHOP
+  BOOKSHOP
+  COSMETIC_AND_SKINCARE_SHOP
+  CONSTRUCTION_SHOP
+  OTHER
+}
+
 // ─── Tenant ─────────────────────────────────────────────────────
 
 model Tenant {
   id              String       @id @default(uuid())
   name            String
-  industry        String       @default("business")
+  industry        IndustryType @default(OTHER)
   mobileLogo      String?
   tabletLogo      String?
   subscriptionFee Float        @default(0)
@@ -233,7 +246,7 @@ model Admin {
 model SubscriptionPrice {
   id          String   @id @default(uuid())
   name        String
-  industry    String   @default("business")
+  industry    IndustryType @default(OTHER)
   description String?
   amount      Float
   currency    String   @default("USD")

@@ -120,3 +120,23 @@ export class ListUsersDto {
   @IsString()
   search?: string;
 }
+
+export class ResetUserCredentialsDto {
+  @ApiPropertyOptional({ description: 'New user email', example: 'staff@example.com' })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @ApiPropertyOptional({
+    description: 'New 4-digit PIN',
+    minLength: 4,
+    maxLength: 4,
+    pattern: '^\\d{4}$',
+    example: '1234',
+  })
+  @IsOptional()
+  @IsString()
+  @Length(4, 4)
+  @Matches(/^\d{4}$/, { message: 'PIN must be exactly 4 digits' })
+  pin?: string;
+}

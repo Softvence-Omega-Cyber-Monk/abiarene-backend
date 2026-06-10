@@ -41,7 +41,9 @@ export class InventoryController {
     return user.tenantId;
   }
 
-  private me(user?: AuthUser): AuthUser & { tenantId: string; sub: string; role: string } {
+  private me(
+    user?: AuthUser,
+  ): AuthUser & { tenantId: string; sub: string; role: string } {
     if (!user?.tenantId || !user?.sub || !user?.role) {
       throw new UnauthorizedException('Missing user context');
     }
@@ -52,7 +54,10 @@ export class InventoryController {
   @Post()
   @Roles('manager', 'supervisor', 'admin')
   @ApiOperation({ summary: 'Create inventory item under your current tenant' })
-  @ApiResponse({ status: 201, description: 'Inventory item created under your current tenant' })
+  @ApiResponse({
+    status: 201,
+    description: 'Inventory item created under your current tenant',
+  })
   create(
     @CurrentUser() user: AuthUser | undefined,
     @Body() dto: CreateInventoryDto,
@@ -62,7 +67,10 @@ export class InventoryController {
 
   @Get()
   @ApiOperation({ summary: 'List inventory items under your current tenant' })
-  @ApiResponse({ status: 200, description: 'Inventory items retrieved for your current tenant' })
+  @ApiResponse({
+    status: 200,
+    description: 'Inventory items retrieved for your current tenant',
+  })
   @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
   @ApiQuery({ name: 'limit', required: false, type: String, example: '20' })
   list(
@@ -78,8 +86,13 @@ export class InventoryController {
 
   @Get('stock-alerts')
   @Roles('manager', 'supervisor')
-  @ApiOperation({ summary: 'List low-stock inventory alerts under your current tenant' })
-  @ApiResponse({ status: 200, description: 'Low-stock inventory alerts retrieved for your current tenant' })
+  @ApiOperation({
+    summary: 'List low-stock inventory alerts under your current tenant',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Low-stock inventory alerts retrieved for your current tenant',
+  })
   stockAlerts(@CurrentUser() user: AuthUser | undefined) {
     return this.service.stockAlerts(this.tenantId(user));
   }
@@ -88,10 +101,14 @@ export class InventoryController {
   @ApiOperation({ summary: 'Get inventory item by inventory value' })
   @ApiParam({
     name: 'inventory',
-    description: 'Inventory lookup value. Matches product name, SKU, or barcode',
+    description:
+      'Inventory lookup value. Matches product name, SKU, or barcode',
     example: 'PRD-1001',
   })
-  @ApiResponse({ status: 200, description: 'Inventory item retrieved by inventory value' })
+  @ApiResponse({
+    status: 200,
+    description: 'Inventory item retrieved by inventory value',
+  })
   readByInventory(
     @CurrentUser() user: AuthUser | undefined,
     @Param('inventory') inventory: string,
@@ -101,8 +118,13 @@ export class InventoryController {
 
   @Get('delete-requests')
   @Roles('manager', 'supervisor', 'admin')
-  @ApiOperation({ summary: 'List inventory deletion requests under your current tenant' })
-  @ApiResponse({ status: 200, description: 'Inventory deletion requests retrieved' })
+  @ApiOperation({
+    summary: 'List inventory deletion requests under your current tenant',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Inventory deletion requests retrieved',
+  })
   @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
   @ApiQuery({ name: 'limit', required: false, type: String, example: '20' })
   @ApiQuery({
@@ -122,7 +144,10 @@ export class InventoryController {
   @Post('delete-requests/:requestId/approve')
   @Roles('supervisor', 'admin')
   @ApiOperation({ summary: 'Approve a pending inventory deletion request' })
-  @ApiResponse({ status: 201, description: 'Inventory deletion request approved and item deleted' })
+  @ApiResponse({
+    status: 201,
+    description: 'Inventory deletion request approved and item deleted',
+  })
   approveDeletionRequest(
     @CurrentUser() user: AuthUser | undefined,
     @Param('requestId') requestId: string,
@@ -134,7 +159,10 @@ export class InventoryController {
   @Post('delete-requests/:requestId/reject')
   @Roles('supervisor', 'admin')
   @ApiOperation({ summary: 'Reject a pending inventory deletion request' })
-  @ApiResponse({ status: 201, description: 'Inventory deletion request rejected' })
+  @ApiResponse({
+    status: 201,
+    description: 'Inventory deletion request rejected',
+  })
   rejectDeletionRequest(
     @CurrentUser() user: AuthUser | undefined,
     @Param('requestId') requestId: string,
@@ -170,8 +198,13 @@ export class InventoryController {
 
   @Delete(':id')
   @Roles('manager', 'supervisor', 'admin')
-  @ApiOperation({ summary: 'Delete inventory item by ID or request supervisor approval' })
-  @ApiResponse({ status: 200, description: 'Inventory item deleted or deletion approval requested' })
+  @ApiOperation({
+    summary: 'Delete inventory item by ID or request supervisor approval',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Inventory item deleted or deletion approval requested',
+  })
   delete(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
     const me = this.me(user);
     return this.service.delete(me.tenantId, id, me);

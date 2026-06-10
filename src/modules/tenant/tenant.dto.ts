@@ -13,6 +13,21 @@ import {
 } from 'class-validator';
 import { PaginationDto } from '../../common/dto/pagination.dto.js';
 
+export const INDUSTRY_TYPES = [
+  'RESTAURANT',
+  'BAR',
+  'SUPERMARKET',
+  'HARDWARE_STORE',
+  'WINE_SHOP',
+  'CLOTHING_AND_FASHION_SHOP',
+  'BOOKSHOP',
+  'COSMETIC_AND_SKINCARE_SHOP',
+  'CONSTRUCTION_SHOP',
+  'OTHER',
+] as const;
+
+export type IndustryType = (typeof INDUSTRY_TYPES)[number];
+
 export const STRIPE_SUPPORTED_CURRENCIES = [
   'USD',
   'EUR',
@@ -53,10 +68,14 @@ export class CreateTenantDto {
   @MinLength(3)
   name!: string;
 
-  @ApiPropertyOptional({ description: 'Tenant industry', example: 'hardware' })
+  @ApiPropertyOptional({
+    description: 'Tenant industry',
+    enum: INDUSTRY_TYPES,
+    example: 'HARDWARE_STORE',
+  })
   @IsOptional()
-  @IsString()
-  industry?: string;
+  @IsIn(INDUSTRY_TYPES)
+  industry?: IndustryType;
 
   @ApiPropertyOptional({ description: 'Mobile logo URL', example: 'https://example.com/mobile-logo.png' })
   @IsOptional()
@@ -121,10 +140,14 @@ export class UpdateTenantDto {
   @MinLength(3)
   name?: string;
 
-  @ApiPropertyOptional({ description: 'Tenant industry', example: 'supershop' })
+  @ApiPropertyOptional({
+    description: 'Tenant industry',
+    enum: INDUSTRY_TYPES,
+    example: 'SUPERMARKET',
+  })
   @IsOptional()
-  @IsString()
-  industry?: string;
+  @IsIn(INDUSTRY_TYPES)
+  industry?: IndustryType;
 
   @ApiPropertyOptional({ description: 'Mobile logo URL', example: 'https://example.com/mobile-logo.png' })
   @IsOptional()

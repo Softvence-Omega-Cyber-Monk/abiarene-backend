@@ -48,11 +48,11 @@ export class TenantPortalController {
     const forwardedProto = request.headers['x-forwarded-proto'];
     const protocol = Array.isArray(forwardedProto)
       ? forwardedProto[0]
-      : forwardedProto ?? request.protocol;
+      : (forwardedProto ?? request.protocol);
     const forwardedHost = request.headers['x-forwarded-host'];
     const host = Array.isArray(forwardedHost)
       ? forwardedHost[0]
-      : forwardedHost ?? request.get('host');
+      : (forwardedHost ?? request.get('host'));
 
     if (!host) {
       return null;
@@ -64,8 +64,13 @@ export class TenantPortalController {
   @Post('create')
   @AllowWithoutTenant()
   @Roles('supervisor')
-  @ApiOperation({ summary: 'Create tenant under the current supervisor account' })
-  @ApiResponse({ status: 201, description: 'Tenant created for the supervisor' })
+  @ApiOperation({
+    summary: 'Create tenant under the current supervisor account',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Tenant created for the supervisor',
+  })
   create(
     @CurrentUser() user: AuthUser | undefined,
     @Body() dto: CreateTenantDto,
@@ -87,8 +92,13 @@ export class TenantPortalController {
 
   @Get('overview')
   @Roles('manager', 'supervisor')
-  @ApiOperation({ summary: 'Get manager overview metrics for the current tenant' })
-  @ApiResponse({ status: 200, description: 'Manager overview metrics retrieved' })
+  @ApiOperation({
+    summary: 'Get manager overview metrics for the current tenant',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Manager overview metrics retrieved',
+  })
   overview(@CurrentUser() user: AuthUser | undefined) {
     return this.service.overview(this.tenantId(user));
   }
@@ -116,7 +126,9 @@ export class TenantPortalController {
 
   @Get('total-transactions')
   @Roles('manager', 'supervisor')
-  @ApiOperation({ summary: 'Get total transaction summary for the current tenant' })
+  @ApiOperation({
+    summary: 'Get total transaction summary for the current tenant',
+  })
   @ApiResponse({ status: 200, description: 'Transaction summary retrieved' })
   totalTransactions(@CurrentUser() user: AuthUser | undefined) {
     return this.service.totalTransactions(this.tenantId(user));
@@ -124,8 +136,13 @@ export class TenantPortalController {
 
   @Get('active-discounts')
   @Roles('manager', 'supervisor')
-  @ApiOperation({ summary: 'Get active discount or voucher summary for the current tenant' })
-  @ApiResponse({ status: 200, description: 'Active discount summary retrieved' })
+  @ApiOperation({
+    summary: 'Get active discount or voucher summary for the current tenant',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Active discount summary retrieved',
+  })
   activeDiscounts(@CurrentUser() user: AuthUser | undefined) {
     return this.service.activeDiscounts(this.tenantId(user));
   }
@@ -143,15 +160,22 @@ export class TenantPortalController {
 
   @Get('subscription/me')
   @Roles('manager', 'supervisor')
-  @ApiOperation({ summary: 'Get current tenant subscription status and payment options' })
-  @ApiResponse({ status: 200, description: 'Current tenant subscription details retrieved' })
+  @ApiOperation({
+    summary: 'Get current tenant subscription status and payment options',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Current tenant subscription details retrieved',
+  })
   getSubscription(@CurrentUser() user: AuthUser | undefined) {
     return this.service.getSubscription(this.tenantId(user));
   }
 
   @Get('subscription/vouchers')
   @Roles('manager', 'supervisor')
-  @ApiOperation({ summary: 'List available subscription vouchers for the current tenant' })
+  @ApiOperation({
+    summary: 'List available subscription vouchers for the current tenant',
+  })
   @ApiResponse({ status: 200, description: 'Subscription vouchers retrieved' })
   listSubscriptionVouchers(@CurrentUser() user: AuthUser | undefined) {
     return this.service.listSubscriptionVouchers(this.tenantId(user));
@@ -161,7 +185,10 @@ export class TenantPortalController {
   @Roles('manager', 'supervisor', 'admin')
   @ApiOperation({ summary: 'List roles under your own tenant scope' })
   @ApiResponse({ status: 200, description: 'Tenant roles retrieved' })
-  @ApiResponse({ status: 403, description: 'You can only access roles for your own tenant' })
+  @ApiResponse({
+    status: 403,
+    description: 'You can only access roles for your own tenant',
+  })
   @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
   @ApiQuery({ name: 'limit', required: false, type: String, example: '20' })
   listRoles(
@@ -170,8 +197,13 @@ export class TenantPortalController {
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '20',
   ) {
-    if (user?.role?.toUpperCase() !== RoleName.ADMIN && this.tenantId(user) !== tenantId) {
-      throw new ForbiddenException('You can only access roles for your own tenant');
+    if (
+      user?.role?.toUpperCase() !== RoleName.ADMIN &&
+      this.tenantId(user) !== tenantId
+    ) {
+      throw new ForbiddenException(
+        'You can only access roles for your own tenant',
+      );
     }
 
     return this.service.listRoles(tenantId, {
@@ -182,8 +214,13 @@ export class TenantPortalController {
 
   @Get('subscription/payments/:reference/status')
   @Roles('manager', 'supervisor')
-  @ApiOperation({ summary: 'Get current tenant subscription payment status by reference' })
-  @ApiResponse({ status: 200, description: 'Tenant subscription payment status retrieved' })
+  @ApiOperation({
+    summary: 'Get current tenant subscription payment status by reference',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Tenant subscription payment status retrieved',
+  })
   getSubscriptionPaymentStatus(
     @CurrentUser() user: AuthUser | undefined,
     @Param('reference') reference: string,
@@ -196,8 +233,14 @@ export class TenantPortalController {
 
   @Post('subscription/pay')
   @Roles('manager', 'supervisor')
-  @ApiOperation({ summary: 'Initiate tenant subscription payment for the current manager tenant' })
-  @ApiResponse({ status: 201, description: 'Tenant subscription payment initiated' })
+  @ApiOperation({
+    summary:
+      'Initiate tenant subscription payment for the current manager tenant',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Tenant subscription payment initiated',
+  })
   initiateSubscriptionPayment(
     @CurrentUser() user: AuthUser | undefined,
     @Req() request: Request,

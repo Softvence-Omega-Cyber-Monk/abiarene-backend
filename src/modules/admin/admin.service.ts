@@ -206,7 +206,7 @@ export class AdminService {
     return this.prisma.subscriptionPrice.create({
       data: {
         name: dto.name,
-        industry: dto.industry ?? 'business',
+        industry: dto.industry ?? 'OTHER',
         description: dto.description,
         amount: this.toMoney(dto.amount),
         currency: (dto.currency ?? 'USD').toUpperCase(),

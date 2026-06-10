@@ -21,7 +21,7 @@ async function main() {
     create: {
       id: 'tenant-demo-1',
       name: 'Demo Bistro',
-      industry: 'business',
+      industry: 'OTHER',
       subscriptionFee: 129.0,
       status: 'ACTIVE',
       subscriptionStatus: 'ACTIVE',

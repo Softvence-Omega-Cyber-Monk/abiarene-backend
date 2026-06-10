@@ -89,7 +89,7 @@ export class TenantService {
       const tenant = await tx.tenant.create({
         data: {
           name: dto.name,
-          industry: dto.industry ?? 'business',
+          industry: dto.industry ?? 'OTHER',
           mobileLogo: dto.mobileLogo,
           tabletLogo: dto.tabletLogo,
           subscriptionFee: dto.subscriptionFee ?? 0,

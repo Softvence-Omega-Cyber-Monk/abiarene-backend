@@ -56,7 +56,9 @@ export class AuthController {
 
   @Post('register')
   @Public()
-  @ApiOperation({ summary: 'Create a supervisor account before tenant onboarding' })
+  @ApiOperation({
+    summary: 'Create a supervisor account before tenant onboarding',
+  })
   @ApiResponse({ status: 201, description: 'Supervisor account created' })
   @ApiResponse({ status: 400, description: 'Email already exists' })
   register(@Body() dto: RegisterSupervisorDto) {
