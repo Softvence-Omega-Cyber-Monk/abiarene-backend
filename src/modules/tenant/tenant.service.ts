@@ -81,6 +81,29 @@ export class TenantService {
         );
       }
 
+      const subscriptionPrice = await tx.subscriptionPrice.findFirst({
+        where: {
+          id: dto.subscriptionPriceId,
+          isActive: true,
+        },
+        select: {
+          id: true,
+          industry: true,
+          amount: true,
+          planType: true,
+        },
+      });
+
+      if (!subscriptionPrice) {
+        throw new BadRequestException('Subscription price not found or inactive');
+      }
+
+      if (dto.industry && dto.industry !== subscriptionPrice.industry) {
+        throw new BadRequestException(
+          'Selected industry does not match the selected subscription price',
+        );
+      }
+
       const now = new Date();
       const freeTrialEndAt = dto.startWithFreeTrial
         ? new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
@@ -89,10 +112,10 @@ export class TenantService {
       const tenant = await tx.tenant.create({
         data: {
           name: dto.name,
-          industry: dto.industry ?? 'OTHER',
+          industry: dto.industry ?? subscriptionPrice.industry,
           mobileLogo: dto.mobileLogo,
           tabletLogo: dto.tabletLogo,
-          subscriptionFee: dto.subscriptionFee ?? 0,
+          subscriptionFee: this.toMoney(subscriptionPrice.amount),
           startsWithFreeTrial: dto.startWithFreeTrial ?? false,
           status: 'ACTIVE',
           subscriptionStatus: dto.startWithFreeTrial ? 'ACTIVE' : 'PENDING',

@@ -4,7 +4,6 @@ import {
   IsBoolean,
   IsIn,
   IsInt,
-  IsNumber,
   IsOptional,
   IsString,
   Max,
@@ -87,10 +86,12 @@ export class CreateTenantDto {
   @IsString()
   tabletLogo?: string;
 
-  @ApiPropertyOptional({ description: 'Subscription fee', example: 99.99 })
-  @IsOptional()
-  @IsNumber()
-  subscriptionFee?: number;
+  @ApiProperty({
+    description: 'Selected subscription price ID created by admin',
+    example: 'subscription-price-id',
+  })
+  @IsString()
+  subscriptionPriceId!: string;
 
   @ApiPropertyOptional({
     description: 'Start the tenant with a 7-day free trial before subscription payment is required',
