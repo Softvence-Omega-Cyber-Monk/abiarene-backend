@@ -113,6 +113,12 @@ enum InventoryDeletionRequestStatus {
   REJECTED
 }
 
+enum SubscriptionPlanType {
+  FREE
+  MONTHLY
+  YEARLY
+}
+
 enum IndustryType {
   RESTAURANT
   BAR
@@ -246,6 +252,7 @@ model Admin {
 model SubscriptionPrice {
   id          String   @id @default(uuid())
   name        String
+  planType    SubscriptionPlanType @default(MONTHLY)
   industry    IndustryType @default(OTHER)
   description String?
   amount      Float
@@ -257,6 +264,7 @@ model SubscriptionPrice {
 
   createdBy   Admin    @relation(fields: [createdById], references: [id], onDelete: Cascade)
 
+  @@unique([industry, planType])
   @@index([industry, isActive])
   @@index([createdById])
   @@map("subscription_prices")

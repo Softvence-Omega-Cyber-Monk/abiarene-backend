@@ -11,6 +11,14 @@ import {
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { INDUSTRY_TYPES, type IndustryType } from '../tenant/tenant.dto.js';
 
+export const SUBSCRIPTION_PLAN_TYPES = [
+  'FREE',
+  'MONTHLY',
+  'YEARLY',
+] as const;
+
+export type SubscriptionPlanType = (typeof SUBSCRIPTION_PLAN_TYPES)[number];
+
 export class AdminSignupDto {
   @ApiProperty({ description: 'Admin email', example: 'admin@example.com' })
   @IsEmail()
@@ -57,9 +65,12 @@ export class ListAdminDto {
 }
 
 export class CreateSubscriptionPriceDto {
-  @ApiProperty({ example: 'Starter Plan' })
-  @IsString()
-  name!: string;
+  @ApiProperty({
+    enum: SUBSCRIPTION_PLAN_TYPES,
+    example: 'MONTHLY',
+  })
+  @IsIn(SUBSCRIPTION_PLAN_TYPES)
+  planType!: SubscriptionPlanType;
 
   @ApiPropertyOptional({
     enum: INDUSTRY_TYPES,

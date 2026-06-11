@@ -13,6 +13,7 @@ import {
   UpdateSubscriptionPriceDto,
   UpdateSubscriptionVoucherDto,
 } from './admin.dto.js';
+import type { SubscriptionPlanType } from './admin.dto.js';
 
 @Injectable()
 export class AdminService {
@@ -31,6 +32,17 @@ export class AdminService {
     }
 
     return this.toMoney(((current - previous) / previous) * 100);
+  }
+
+  private getSubscriptionPlanLabel(planType: SubscriptionPlanType) {
+    switch (planType) {
+      case 'FREE':
+        return 'Free Plan';
+      case 'MONTHLY':
+        return 'Monthly Plan';
+      case 'YEARLY':
+        return 'Yearly Plan';
+    }
   }
 
   async signup(dto: AdminSignupDto) {
@@ -205,7 +217,8 @@ export class AdminService {
   createSubscriptionPrice(adminId: string, dto: CreateSubscriptionPriceDto) {
     return this.prisma.subscriptionPrice.create({
       data: {
-        name: dto.name,
+        name: this.getSubscriptionPlanLabel(dto.planType),
+        planType: dto.planType,
         industry: dto.industry ?? 'OTHER',
         description: dto.description,
         amount: this.toMoney(dto.amount),
@@ -216,6 +229,7 @@ export class AdminService {
       select: {
         id: true,
         name: true,
+        planType: true,
         industry: true,
         description: true,
         amount: true,
@@ -224,6 +238,16 @@ export class AdminService {
         createdAt: true,
         updatedAt: true,
       },
+    }).catch((error) => {
+      if (
+        error?.code === 'P2002'
+      ) {
+        throw new BadRequestException(
+          'This industry already has this subscription plan configured',
+        );
+      }
+
+      throw error;
     });
   }
 
@@ -236,6 +260,7 @@ export class AdminService {
       select: {
         id: true,
         name: true,
+        planType: true,
         industry: true,
         description: true,
         amount: true,
@@ -264,7 +289,12 @@ export class AdminService {
     return this.prisma.subscriptionPrice.update({
       where: { id },
       data: {
-        ...(dto.name !== undefined ? { name: dto.name } : {}),
+        ...(dto.planType !== undefined
+          ? {
+              planType: dto.planType,
+              name: this.getSubscriptionPlanLabel(dto.planType),
+            }
+          : {}),
         ...(dto.industry !== undefined ? { industry: dto.industry } : {}),
         ...(dto.description !== undefined ? { description: dto.description } : {}),
         ...(dto.amount !== undefined ? { amount: this.toMoney(dto.amount) } : {}),
@@ -274,6 +304,7 @@ export class AdminService {
       select: {
         id: true,
         name: true,
+        planType: true,
         industry: true,
         description: true,
         amount: true,
@@ -282,6 +313,14 @@ export class AdminService {
         createdAt: true,
         updatedAt: true,
       },
+    }).catch((error) => {
+      if (error?.code === 'P2002') {
+        throw new BadRequestException(
+          'This industry already has this subscription plan configured',
+        );
+      }
+
+      throw error;
     });
   }
 
