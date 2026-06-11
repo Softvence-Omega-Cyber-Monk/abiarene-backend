@@ -219,7 +219,6 @@ export class AdminService {
       data: {
         name: this.getSubscriptionPlanLabel(dto.planType),
         planType: dto.planType,
-        industry: dto.industry ?? 'OTHER',
         description: dto.description,
         amount: this.toMoney(dto.amount),
         currency: (dto.currency ?? 'USD').toUpperCase(),
@@ -230,7 +229,6 @@ export class AdminService {
         id: true,
         name: true,
         planType: true,
-        industry: true,
         description: true,
         amount: true,
         currency: true,
@@ -243,7 +241,7 @@ export class AdminService {
         error?.code === 'P2002'
       ) {
         throw new BadRequestException(
-          'This industry already has this subscription plan configured',
+          'This subscription plan is already configured',
         );
       }
 
@@ -261,7 +259,6 @@ export class AdminService {
         id: true,
         name: true,
         planType: true,
-        industry: true,
         description: true,
         amount: true,
         currency: true,
@@ -295,7 +292,6 @@ export class AdminService {
               name: this.getSubscriptionPlanLabel(dto.planType),
             }
           : {}),
-        ...(dto.industry !== undefined ? { industry: dto.industry } : {}),
         ...(dto.description !== undefined ? { description: dto.description } : {}),
         ...(dto.amount !== undefined ? { amount: this.toMoney(dto.amount) } : {}),
         ...(dto.currency !== undefined ? { currency: dto.currency.toUpperCase() } : {}),
@@ -305,7 +301,6 @@ export class AdminService {
         id: true,
         name: true,
         planType: true,
-        industry: true,
         description: true,
         amount: true,
         currency: true,
@@ -316,7 +311,7 @@ export class AdminService {
     }).catch((error) => {
       if (error?.code === 'P2002') {
         throw new BadRequestException(
-          'This industry already has this subscription plan configured',
+          'This subscription plan is already configured',
         );
       }
 

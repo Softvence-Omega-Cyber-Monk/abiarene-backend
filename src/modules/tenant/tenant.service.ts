@@ -58,106 +58,109 @@ export class TenantService {
       roleCreates.push({ name: RoleName.CASHIER, isActive: true });
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const supervisor = await tx.user.findFirst({
-        where: { id: userId, status: 'ACTIVE' },
-        include: { role: true },
-      });
+    return this.prisma.$transaction(
+      async (tx) => {
+        const supervisor = await tx.user.findFirst({
+          where: { id: userId, status: 'ACTIVE' },
+          include: { role: true },
+        });
 
-      if (!supervisor) {
-        throw new NotFoundException('Supervisor account not found');
-      }
+        if (!supervisor) {
+          throw new NotFoundException('Supervisor account not found');
+        }
 
-      const resolvedRole = supervisor.role?.name ?? supervisor.pendingRole;
-      if (resolvedRole !== RoleName.SUPERVISOR) {
-        throw new ForbiddenException(
-          'Only a supervisor account can create a tenant',
-        );
-      }
+        const resolvedRole = supervisor.role?.name ?? supervisor.pendingRole;
+        if (resolvedRole !== RoleName.SUPERVISOR) {
+          throw new ForbiddenException(
+            'Only a supervisor account can create a tenant',
+          );
+        }
 
-      if (supervisor.tenantId) {
-        throw new BadRequestException(
-          'This supervisor account is already assigned to a tenant',
-        );
-      }
+        if (supervisor.tenantId) {
+          throw new BadRequestException(
+            'This supervisor account is already assigned to a tenant',
+          );
+        }
 
-      const subscriptionPrice = await tx.subscriptionPrice.findFirst({
-        where: {
-          id: dto.subscriptionPriceId,
-          isActive: true,
-        },
-        select: {
-          id: true,
-          industry: true,
-          amount: true,
-          planType: true,
-        },
-      });
-
-      if (!subscriptionPrice) {
-        throw new BadRequestException('Subscription price not found or inactive');
-      }
-
-      if (dto.industry && dto.industry !== subscriptionPrice.industry) {
-        throw new BadRequestException(
-          'Selected industry does not match the selected subscription price',
-        );
-      }
-
-      const now = new Date();
-      const freeTrialEndAt = dto.startWithFreeTrial
-        ? new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-        : null;
-
-      const tenant = await tx.tenant.create({
-        data: {
-          name: dto.name,
-          industry: dto.industry ?? subscriptionPrice.industry,
-          mobileLogo: dto.mobileLogo,
-          tabletLogo: dto.tabletLogo,
-          subscriptionFee: this.toMoney(subscriptionPrice.amount),
-          startsWithFreeTrial: dto.startWithFreeTrial ?? false,
-          status: 'ACTIVE',
-          subscriptionStatus: dto.startWithFreeTrial ? 'ACTIVE' : 'PENDING',
-          subscriptionStartAt: dto.startWithFreeTrial ? now : null,
-          subscriptionEndAt: freeTrialEndAt,
-          lastSync: now,
-          roles: {
-            create: roleCreates,
+        const subscriptionPrice = await tx.subscriptionPrice.findFirst({
+          where: {
+            id: dto.subscriptionPriceId,
+            isActive: true,
           },
-        },
-        include: {
-          roles: {
-            orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            amount: true,
+            planType: true,
           },
-        },
-      });
+        });
 
-      const supervisorRole = tenant.roles.find(
-        (role) => role.name === DEFAULT_TENANT_ROLE,
-      );
+        if (!subscriptionPrice) {
+          throw new BadRequestException(
+            'Subscription price not found or inactive',
+          );
+        }
 
-      if (!supervisorRole) {
-        throw new BadRequestException('Default supervisor role was not created');
-      }
+        const now = new Date();
+        const freeTrialEndAt = dto.startWithFreeTrial
+          ? new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+          : null;
 
-      const updatedSupervisor = await tx.user.update({
-        where: { id: supervisor.id },
-        data: {
-          roleId: supervisorRole.id,
-          tenantId: tenant.id,
-          pendingRole: null,
-        },
-        include: {
-          role: true,
-        },
-      });
+        const tenant = await tx.tenant.create({
+          data: {
+            name: dto.name,
+            industry: dto.industry ?? 'OTHER',
+            mobileLogo: dto.mobileLogo,
+            tabletLogo: dto.tabletLogo,
+            subscriptionFee: this.toMoney(subscriptionPrice.amount),
+            startsWithFreeTrial: dto.startWithFreeTrial ?? false,
+            status: 'ACTIVE',
+            subscriptionStatus: dto.startWithFreeTrial ? 'ACTIVE' : 'PENDING',
+            subscriptionStartAt: dto.startWithFreeTrial ? now : null,
+            subscriptionEndAt: freeTrialEndAt,
+            lastSync: now,
+            roles: {
+              create: roleCreates,
+            },
+          },
+          include: {
+            roles: {
+              orderBy: { createdAt: 'asc' },
+            },
+          },
+        });
 
-      return {
-        ...tenant,
-        supervisor: updatedSupervisor,
-      };
-    });
+        const supervisorRole = tenant.roles.find(
+          (role) => role.name === DEFAULT_TENANT_ROLE,
+        );
+
+        if (!supervisorRole) {
+          throw new BadRequestException(
+            'Default supervisor role was not created',
+          );
+        }
+
+        const updatedSupervisor = await tx.user.update({
+          where: { id: supervisor.id },
+          data: {
+            roleId: supervisorRole.id,
+            tenantId: tenant.id,
+            pendingRole: null,
+          },
+          include: {
+            role: true,
+          },
+        });
+
+        return {
+          ...tenant,
+          supervisor: updatedSupervisor,
+        };
+      },
+      {
+        maxWait: 10_000,
+        timeout: 20_000,
+      },
+    );
   }
 
   async listAll(dto: ListTenantDto) {

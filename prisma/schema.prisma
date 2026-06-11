@@ -253,7 +253,6 @@ model SubscriptionPrice {
   id          String   @id @default(uuid())
   name        String
   planType    SubscriptionPlanType @default(MONTHLY)
-  industry    IndustryType @default(OTHER)
   description String?
   amount      Float
   currency    String   @default("USD")
@@ -264,8 +263,8 @@ model SubscriptionPrice {
 
   createdBy   Admin    @relation(fields: [createdById], references: [id], onDelete: Cascade)
 
-  @@unique([industry, planType])
-  @@index([industry, isActive])
+  @@unique([planType])
+  @@index([isActive])
   @@index([createdById])
   @@map("subscription_prices")
 }

@@ -9,7 +9,6 @@ import {
   IsString,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { INDUSTRY_TYPES, type IndustryType } from '../tenant/tenant.dto.js';
 
 export const SUBSCRIPTION_PLAN_TYPES = [
   'FREE',
@@ -71,15 +70,6 @@ export class CreateSubscriptionPriceDto {
   })
   @IsIn(SUBSCRIPTION_PLAN_TYPES)
   planType!: SubscriptionPlanType;
-
-  @ApiPropertyOptional({
-    enum: INDUSTRY_TYPES,
-    example: 'SUPERMARKET',
-    default: 'OTHER',
-  })
-  @IsOptional()
-  @IsIn(INDUSTRY_TYPES)
-  industry?: IndustryType;
 
   @ApiPropertyOptional({ example: 'Base monthly subscription price' })
   @IsOptional()
