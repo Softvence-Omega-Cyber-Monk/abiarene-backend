@@ -22,6 +22,14 @@ const DEFAULT_TENANT_ROLE = RoleName.SUPERVISOR;
 export class TenantService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private normalizeCountryCode(value: string) {
+    return value.trim().toUpperCase();
+  }
+
+  private normalizeCurrencyCode(value: string) {
+    return value.trim().toUpperCase();
+  }
+
   private toMoney(value: number) {
     return Math.round(value * 100) / 100;
   }
@@ -109,6 +117,8 @@ export class TenantService {
           data: {
             name: dto.name,
             industry: dto.industry ?? 'OTHER',
+            countryCode: this.normalizeCountryCode(dto.countryCode),
+            currencyCode: this.normalizeCurrencyCode(dto.currencyCode),
             mobileLogo: dto.mobileLogo,
             tabletLogo: dto.tabletLogo,
             subscriptionFee: this.toMoney(subscriptionPrice.amount),
@@ -207,6 +217,12 @@ export class TenantService {
       data: {
         name: dto.name,
         industry: dto.industry,
+        countryCode: dto.countryCode
+          ? this.normalizeCountryCode(dto.countryCode)
+          : undefined,
+        currencyCode: dto.currencyCode
+          ? this.normalizeCurrencyCode(dto.currencyCode)
+          : undefined,
         mobileLogo: dto.mobileLogo,
         tabletLogo: dto.tabletLogo,
       },

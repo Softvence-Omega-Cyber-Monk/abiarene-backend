@@ -53,6 +53,15 @@ export class OrdersService {
     return Math.round(value * 100) / 100;
   }
 
+  private async getTenantCurrencyCode(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { currencyCode: true },
+    });
+
+    return tenant?.currencyCode;
+  }
+
   private getOrderItemUnitPrice(item: {
     unitPrice?: number | null;
     menuItem?: { price?: number | null } | null;
@@ -61,7 +70,7 @@ export class OrdersService {
     return item.unitPrice ?? item.menuItem?.price ?? item.product?.price ?? 0;
   }
 
-  private resolveOrderItem(item: any) {
+  private resolveOrderItem(item: any, currencyCode?: string) {
     const source = item.menuItem ?? item.product ?? null;
     const itemId = item.menuItemId ?? item.productId ?? source?.id ?? item.id;
     const name = item.itemName ?? source?.name ?? 'Unknown Item';
@@ -81,15 +90,19 @@ export class OrdersService {
         category,
         price: unitPrice,
         image,
+        currencyCode,
       },
       lineTotal: this.toMoney(item.quantity * unitPrice),
       sourceType: item.productId ? 'INVENTORY' : 'MENU',
+      currencyCode,
     };
   }
 
-  private formatOrderListItem(order: any) {
+  private formatOrderListItem(order: any, currencyCode?: string) {
     const latestTicket = order.tickets[0] ?? null;
-    const items = order.items.map((item: any) => this.resolveOrderItem(item));
+    const items = order.items.map((item: any) =>
+      this.resolveOrderItem(item, currencyCode),
+    );
 
     return {
       id: order.id,
@@ -103,15 +116,18 @@ export class OrdersService {
       table: order.table,
       items,
       ticket: latestTicket,
+      currencyCode,
       meta: {
         itemCount: items.length,
       },
     };
   }
 
-  private formatOrderHistoryItem(order: any) {
+  private formatOrderHistoryItem(order: any, currencyCode?: string) {
     const latestTicket = order.tickets[0] ?? null;
-    const items = order.items.map((item: any) => this.resolveOrderItem(item));
+    const items = order.items.map((item: any) =>
+      this.resolveOrderItem(item, currencyCode),
+    );
 
     return {
       id: order.id,
@@ -126,6 +142,7 @@ export class OrdersService {
       items,
       ticket: latestTicket,
       payments: order.payments,
+      currencyCode,
       meta: {
         itemCount: items.length,
         totalQuantity: items.reduce((sum: number, item: any) => sum + item.quantity, 0),
@@ -351,7 +368,7 @@ export class OrdersService {
       },
     };
 
-    const [orders, total] = await Promise.all([
+    const [orders, total, currencyCode] = await Promise.all([
       this.prisma.order.findMany({
         where,
         skip: (dto.page - 1) * dto.limit,
@@ -418,10 +435,11 @@ export class OrdersService {
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.order.count({ where }),
+      this.getTenantCurrencyCode(tenantId),
     ]);
 
     return buildPaginatedResponse(
-      orders.map((order) => this.formatOrderListItem(order)),
+      orders.map((order) => this.formatOrderListItem(order, currencyCode)),
       dto.page,
       dto.limit,
       total,
@@ -439,7 +457,7 @@ export class OrdersService {
       },
     };
 
-    const [orders, total] = await Promise.all([
+    const [orders, total, currencyCode] = await Promise.all([
       this.prisma.order.findMany({
         where,
         skip: (dto.page - 1) * dto.limit,
@@ -520,21 +538,32 @@ export class OrdersService {
         orderBy: { updatedAt: 'desc' },
       }),
       this.prisma.order.count({ where }),
+      this.getTenantCurrencyCode(tenantId),
     ]);
 
     return buildPaginatedResponse(
-      orders.map((order) => this.formatOrderHistoryItem(order)),
+      orders.map((order) => this.formatOrderHistoryItem(order, currencyCode)),
       dto.page,
       dto.limit,
       total,
     );
   }
 
-  read(tenantId: string, id: string) {
-    return this.prisma.order.findFirst({
-      where: { tenantId, id },
-      include: this.orderInclude,
-    });
+  async read(tenantId: string, id: string) {
+    const [order, currencyCode] = await Promise.all([
+      this.prisma.order.findFirst({
+        where: { tenantId, id },
+        include: this.orderInclude,
+      }),
+      this.getTenantCurrencyCode(tenantId),
+    ]);
+
+    return order
+      ? {
+          ...order,
+          currencyCode,
+        }
+      : order;
   }
 
   async update(tenantId: string, id: string, dto: UpdateOrdersDto) {

@@ -138,6 +138,8 @@ model Tenant {
   id              String       @id @default(uuid())
   name            String
   industry        IndustryType @default(OTHER)
+  countryCode     String       @default("BD")
+  currencyCode    String       @default("BDT")
   mobileLogo      String?
   tabletLogo      String?
   subscriptionFee Float        @default(0)

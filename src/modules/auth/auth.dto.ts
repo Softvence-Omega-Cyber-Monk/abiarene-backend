@@ -48,6 +48,15 @@ export class TenantResponse {
   name: string;
 
   @ApiProperty()
+  industry: string;
+
+  @ApiProperty()
+  countryCode: string;
+
+  @ApiProperty()
+  currencyCode: string;
+
+  @ApiProperty()
   status: string;
 
   @ApiProperty()

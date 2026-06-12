@@ -6,6 +6,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  Length,
   Max,
   Min,
   MinLength,
@@ -75,6 +76,22 @@ export class CreateTenantDto {
   @IsOptional()
   @IsIn(INDUSTRY_TYPES)
   industry?: IndustryType;
+
+  @ApiProperty({
+    description: 'ISO 3166-1 alpha-2 country code',
+    example: 'BD',
+  })
+  @IsString()
+  @Length(2, 2)
+  countryCode!: string;
+
+  @ApiProperty({
+    description: 'ISO 4217 currency code',
+    example: 'BDT',
+  })
+  @IsString()
+  @Length(3, 3)
+  currencyCode!: string;
 
   @ApiPropertyOptional({ description: 'Mobile logo URL', example: 'https://example.com/mobile-logo.png' })
   @IsOptional()
@@ -149,6 +166,24 @@ export class UpdateTenantDto {
   @IsOptional()
   @IsIn(INDUSTRY_TYPES)
   industry?: IndustryType;
+
+  @ApiPropertyOptional({
+    description: 'ISO 3166-1 alpha-2 country code',
+    example: 'BD',
+  })
+  @IsOptional()
+  @IsString()
+  @Length(2, 2)
+  countryCode?: string;
+
+  @ApiPropertyOptional({
+    description: 'ISO 4217 currency code',
+    example: 'BDT',
+  })
+  @IsOptional()
+  @IsString()
+  @Length(3, 3)
+  currencyCode?: string;
 
   @ApiPropertyOptional({ description: 'Mobile logo URL', example: 'https://example.com/mobile-logo.png' })
   @IsOptional()

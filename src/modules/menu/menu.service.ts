@@ -7,19 +7,40 @@ import { buildPaginatedResponse } from '../../common/utils/pagination.js';
 export class MenuService {
   constructor(private readonly prisma: PrismaService) {}
 
-  create(tenantId: string, dto: CreateMenuDto) {
-    return this.prisma.menuItem.create({
-      data: {
-        tenantId,
-        image: dto.image,
-        name: dto.name,
-        category: dto.category,
-        description: dto.description,
-        options: dto.options ?? [],
-        price: dto.price,
-        isActive: dto.isActive ?? true,
-      } as any,
+  private async getTenantCurrencyCode(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { currencyCode: true },
     });
+
+    return tenant?.currencyCode;
+  }
+
+  private withCurrencyCode<T>(record: T, currencyCode?: string) {
+    return {
+      ...(record as object),
+      currencyCode,
+    } as T & { currencyCode?: string };
+  }
+
+  async create(tenantId: string, dto: CreateMenuDto) {
+    const [item, currencyCode] = await Promise.all([
+      this.prisma.menuItem.create({
+        data: {
+          tenantId,
+          image: dto.image,
+          name: dto.name,
+          category: dto.category,
+          description: dto.description,
+          options: dto.options ?? [],
+          price: dto.price,
+          isActive: dto.isActive ?? true,
+        } as any,
+      }),
+      this.getTenantCurrencyCode(tenantId),
+    ]);
+
+    return this.withCurrencyCode(item, currencyCode);
   }
 
   async list(tenantId: string, dto: ListMenuDto) {
@@ -33,7 +54,7 @@ export class MenuService {
         : undefined,
     } as any;
 
-    const [items, total] = await Promise.all([
+    const [items, total, currencyCode] = await Promise.all([
       this.prisma.menuItem.findMany({
         where,
         skip: (dto.page - 1) * dto.limit,
@@ -41,22 +62,33 @@ export class MenuService {
         orderBy: { createdAt: 'desc' } as any,
       }),
       this.prisma.menuItem.count({ where }),
+      this.getTenantCurrencyCode(tenantId),
     ]);
 
-    return buildPaginatedResponse(items, dto.page, dto.limit, total);
+    return buildPaginatedResponse(
+      items.map((item) => this.withCurrencyCode(item, currencyCode)),
+      dto.page,
+      dto.limit,
+      total,
+    );
   }
 
-  read(tenantId: string, id: string) {
-    return this.prisma.menuItem.findFirst({
-      where: { tenantId, id } as any,
-      include: {
-        menuSelections: {
-          include: {
-            menu: true,
+  async read(tenantId: string, id: string) {
+    const [item, currencyCode] = await Promise.all([
+      this.prisma.menuItem.findFirst({
+        where: { tenantId, id } as any,
+        include: {
+          menuSelections: {
+            include: {
+              menu: true,
+            },
           },
-        },
-      } as any,
-    });
+        } as any,
+      }),
+      this.getTenantCurrencyCode(tenantId),
+    ]);
+
+    return item ? this.withCurrencyCode(item, currencyCode) : item;
   }
 
   async update(tenantId: string, id: string, dto: UpdateMenuDto) {

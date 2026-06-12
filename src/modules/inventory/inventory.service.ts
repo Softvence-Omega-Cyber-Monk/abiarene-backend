@@ -22,6 +22,22 @@ export class InventoryService {
     private readonly notifications: NotificationsService,
   ) {}
 
+  private async getTenantCurrencyCode(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { currencyCode: true },
+    });
+
+    return tenant?.currencyCode;
+  }
+
+  private withCurrencyCode<T>(record: T, currencyCode?: string) {
+    return {
+      ...(record as object),
+      currencyCode,
+    } as T & { currencyCode?: string };
+  }
+
   private async attachDeletionRequestState<
     T extends { id: string } | { id: string }[]
   >(tenantId: string, input: T): Promise<T> {
@@ -61,8 +77,13 @@ export class InventoryService {
     return (Array.isArray(input) ? withState : withState[0]) as T;
   }
 
-  create(tenantId: string, dto: CreateInventoryDto) {
-    return this.prisma.product.create({ data: { ...dto, tenantId } as any });
+  async create(tenantId: string, dto: CreateInventoryDto) {
+    const [product, currencyCode] = await Promise.all([
+      this.prisma.product.create({ data: { ...dto, tenantId } as any }),
+      this.getTenantCurrencyCode(tenantId),
+    ]);
+
+    return this.withCurrencyCode(product, currencyCode);
   }
 
   async list(tenantId: string, dto: ListInventoryDto) {
@@ -77,12 +98,19 @@ export class InventoryService {
       this.prisma.product.count({ where }),
     ]);
 
-    const productsWithState = await this.attachDeletionRequestState(
-      tenantId,
-      products,
-    );
+    const [productsWithState, currencyCode] = await Promise.all([
+      this.attachDeletionRequestState(tenantId, products),
+      this.getTenantCurrencyCode(tenantId),
+    ]);
 
-    return buildPaginatedResponse(productsWithState, dto.page, dto.limit, total);
+    return buildPaginatedResponse(
+      productsWithState.map((product) =>
+        this.withCurrencyCode(product, currencyCode),
+      ),
+      dto.page,
+      dto.limit,
+      total,
+    );
   }
 
   async stockAlerts(tenantId: string) {
@@ -91,10 +119,10 @@ export class InventoryService {
       orderBy: [{ stock: 'asc' }, { updatedAt: 'desc' }] as any,
     });
 
-    const productsWithState = await this.attachDeletionRequestState(
-      tenantId,
-      products,
-    );
+    const [productsWithState, currencyCode] = await Promise.all([
+      this.attachDeletionRequestState(tenantId, products),
+      this.getTenantCurrencyCode(tenantId),
+    ]);
 
     const lowStockProducts = productsWithState.filter(
       (product) => product.stock <= product.lowStockThreshold,
@@ -102,7 +130,7 @@ export class InventoryService {
 
     return {
       data: lowStockProducts.map((product) => ({
-        ...product,
+        ...this.withCurrencyCode(product, currencyCode),
         shortage: product.lowStockThreshold - product.stock,
       })),
       meta: {
@@ -111,12 +139,18 @@ export class InventoryService {
     };
   }
 
-  read(tenantId: string, id: string) {
-    return this.prisma.product
-      .findFirst({ where: { tenantId, id } as any })
-      .then((product) =>
-        product ? this.attachDeletionRequestState(tenantId, product) : product,
-      );
+  async read(tenantId: string, id: string) {
+    const [product, currencyCode] = await Promise.all([
+      this.prisma.product.findFirst({ where: { tenantId, id } as any }),
+      this.getTenantCurrencyCode(tenantId),
+    ]);
+
+    if (!product) {
+      return product;
+    }
+
+    const withState = await this.attachDeletionRequestState(tenantId, product);
+    return this.withCurrencyCode(withState, currencyCode);
   }
 
   async readByInventory(tenantId: string, inventory: string) {
@@ -131,7 +165,12 @@ export class InventoryService {
       throw new NotFoundException('Product not found in inventory');
     }
 
-    return this.attachDeletionRequestState(tenantId, product);
+    const [withState, currencyCode] = await Promise.all([
+      this.attachDeletionRequestState(tenantId, product),
+      this.getTenantCurrencyCode(tenantId),
+    ]);
+
+    return this.withCurrencyCode(withState, currencyCode);
   }
 
   async update(tenantId: string, id: string, dto: UpdateInventoryDto) {

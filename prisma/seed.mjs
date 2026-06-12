@@ -22,6 +22,8 @@ async function main() {
       id: 'tenant-demo-1',
       name: 'Demo Bistro',
       industry: 'OTHER',
+      countryCode: 'BD',
+      currencyCode: 'BDT',
       subscriptionFee: 129.0,
       status: 'ACTIVE',
       subscriptionStatus: 'ACTIVE',
