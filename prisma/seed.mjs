@@ -24,6 +24,7 @@ async function main() {
       industry: 'OTHER',
       countryCode: 'BD',
       currencyCode: 'BDT',
+      subscriptionCurrencyCode: 'USD',
       subscriptionFee: 129.0,
       status: 'ACTIVE',
       subscriptionStatus: 'ACTIVE',

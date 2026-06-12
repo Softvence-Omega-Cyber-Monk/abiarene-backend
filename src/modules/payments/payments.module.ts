@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ExchangeRateService } from './exchange-rate.service.js';
 import { MtnMomoPaymentProviderService } from './mtn-momo-payment-provider.service.js';
 import { PaymentsController } from './payments.controller.js';
 import { PaymentProvidersService } from './payment-providers.service.js';
@@ -12,6 +13,7 @@ import { StripePaymentProviderService } from './stripe-payment-provider.service.
   controllers: [PaymentsController],
   providers: [
     PaymentsService,
+    ExchangeRateService,
     PaymentProvidersService,
     StripePaymentProviderService,
     MtnMomoPaymentProviderService,
@@ -19,6 +21,7 @@ import { StripePaymentProviderService } from './stripe-payment-provider.service.
   ],
   exports: [
     PaymentsService,
+    ExchangeRateService,
     PaymentProvidersService,
     StripePaymentProviderService,
     MtnMomoPaymentProviderService,

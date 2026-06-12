@@ -6,18 +6,16 @@ import {
 } from '@nestjs/common';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { ExchangeRateService } from '../payments/exchange-rate.service.js';
 import { PaymentProvidersService } from '../payments/payment-providers.service.js';
+import { roundAmountForCurrency } from '../payments/currency.utils.js';
 import {
   InitiateSubscriptionPaymentDto,
   PAYSTACK_SUPPORTED_CURRENCIES,
-  STRIPE_SUPPORTED_CURRENCIES,
 } from './tenant.dto.js';
 
 @Injectable()
 export class TenantSubscriptionService {
-  private readonly stripeSupportedCurrencies = new Set<string>(
-    STRIPE_SUPPORTED_CURRENCIES,
-  );
   private readonly paystackSupportedCurrencies = new Set<string>(
     PAYSTACK_SUPPORTED_CURRENCIES,
   );
@@ -25,6 +23,7 @@ export class TenantSubscriptionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly paymentProviders: PaymentProvidersService,
+    private readonly exchangeRates: ExchangeRateService,
     private readonly notifications: NotificationsService,
   ) {}
 
@@ -42,6 +41,51 @@ export class TenantSubscriptionService {
 
   private normalizeVoucherCode(code?: string | null) {
     return code?.trim().toUpperCase() ?? null;
+  }
+
+  private normalizeCurrencyCode(code?: string | null) {
+    return code?.trim().toUpperCase() ?? null;
+  }
+
+  private async resolvePaymentConversion(input: {
+    baseAmount: number;
+    baseCurrency: string;
+    requestedCurrency?: string | null;
+    fallbackCurrency?: string | null;
+    provider: InitiateSubscriptionPaymentDto['provider'];
+  }) {
+    const normalizedBaseCurrency = this.normalizeCurrencyCode(input.baseCurrency);
+    const normalizedRequestedCurrency = this.normalizeCurrencyCode(
+      input.requestedCurrency,
+    );
+    const normalizedFallbackCurrency = this.normalizeCurrencyCode(
+      input.fallbackCurrency,
+    );
+
+    const targetCurrency =
+      input.provider === 'stripe' || input.provider === 'paystack'
+        ? normalizedRequestedCurrency ??
+          normalizedFallbackCurrency ??
+          normalizedBaseCurrency ??
+          'USD'
+        : normalizedBaseCurrency ?? 'USD';
+
+    const sourceCurrency = normalizedBaseCurrency ?? 'USD';
+    const exchangeRate =
+      sourceCurrency === targetCurrency
+        ? 1
+        : await this.exchangeRates.getRate(sourceCurrency, targetCurrency);
+    const convertedAmount = roundAmountForCurrency(
+      input.baseAmount * exchangeRate,
+      targetCurrency,
+    );
+
+    return {
+      sourceCurrency,
+      targetCurrency,
+      exchangeRate,
+      convertedAmount,
+    };
   }
 
   private async releaseVoucherReservation(paymentId: string, voucherId?: string | null) {
@@ -171,7 +215,9 @@ export class TenantSubscriptionService {
       select: {
         id: true,
         name: true,
+        currencyCode: true,
         subscriptionFee: true,
+        subscriptionCurrencyCode: true,
         startsWithFreeTrial: true,
         status: true,
         subscriptionStatus: true,
@@ -193,7 +239,7 @@ export class TenantSubscriptionService {
         provider: 'stripe',
         label: 'Stripe',
         configured: this.paymentProviders.isConfigured('stripe'),
-        supportedCurrencies: STRIPE_SUPPORTED_CURRENCIES,
+        supportedCurrencies: null,
       },
       {
         provider: 'orange',
@@ -241,6 +287,8 @@ export class TenantSubscriptionService {
       tenant,
       subscription: {
         fee: tenant.subscriptionFee,
+        feeCurrency: tenant.subscriptionCurrencyCode,
+        preferredPaymentCurrency: tenant.currencyCode,
         status:
           isExpired && tenant.subscriptionStatus === 'ACTIVE'
             ? 'EXPIRED'
@@ -293,7 +341,9 @@ export class TenantSubscriptionService {
       select: {
         id: true,
         name: true,
+        currencyCode: true,
         subscriptionFee: true,
+        subscriptionCurrencyCode: true,
         subscriptionStatus: true,
         subscriptionStartAt: true,
         subscriptionEndAt: true,
@@ -335,15 +385,20 @@ export class TenantSubscriptionService {
     }
 
     const voucher = await this.findVoucherForPayment(tenantId, dto.voucherCode);
+    const requestedCurrency = this.normalizeCurrencyCode(dto.currency);
     const originalAmount = tenant.subscriptionFee;
+    const originalCurrency =
+      this.normalizeCurrencyCode(tenant.subscriptionCurrencyCode) ?? 'USD';
+    const preferredPaymentCurrency =
+      this.normalizeCurrencyCode(tenant.currencyCode) ?? originalCurrency;
     const discountAmount = voucher
       ? Math.min(voucher.amountOff, originalAmount)
       : 0;
-    const payableAmount = this.toMoney(
+    const basePayableAmount = this.toMoney(
       Math.max(0, originalAmount - discountAmount),
     );
 
-    if (payableAmount > 0) {
+    if (basePayableAmount > 0) {
       if (!this.paymentProviders.isConfigured(dto.provider)) {
         throw new BadRequestException(
           `Payment provider "${dto.provider}" is not configured`,
@@ -357,38 +412,41 @@ export class TenantSubscriptionService {
       }
 
       if (
-        dto.provider === 'stripe' &&
-        dto.currency &&
-        !this.stripeSupportedCurrencies.has(dto.currency)
-      ) {
-        throw new BadRequestException(
-          `Currency "${dto.currency}" is not supported for Stripe`,
-        );
-      }
-
-      if (
         dto.provider === 'paystack' &&
-        dto.currency &&
-        !this.paystackSupportedCurrencies.has(dto.currency)
+        requestedCurrency &&
+        !this.paystackSupportedCurrencies.has(requestedCurrency)
       ) {
         throw new BadRequestException(
-          `Currency "${dto.currency}" is not supported for Paystack`,
+          `Currency "${requestedCurrency}" is not supported for Paystack`,
         );
       }
 
-      if (dto.currency && !['stripe', 'paystack'].includes(dto.provider)) {
+      if (requestedCurrency && !['stripe', 'paystack'].includes(dto.provider)) {
         throw new BadRequestException(
           'Currency selection is currently supported only for Stripe and Paystack payments',
         );
       }
     }
 
-    const paymentCurrency =
-      dto.provider === 'stripe'
-        ? dto.currency ?? 'USD'
-        : dto.provider === 'paystack'
-          ? dto.currency ?? 'USD'
-          : 'USD';
+    const conversion = await this.resolvePaymentConversion({
+      baseAmount: basePayableAmount,
+      baseCurrency: originalCurrency,
+      requestedCurrency,
+      fallbackCurrency: preferredPaymentCurrency,
+      provider: dto.provider,
+    });
+    const paymentCurrency = conversion.targetCurrency;
+    const payableAmount = conversion.convertedAmount;
+
+    if (
+      basePayableAmount > 0 &&
+      dto.provider === 'paystack' &&
+      !this.paystackSupportedCurrencies.has(paymentCurrency)
+    ) {
+      throw new BadRequestException(
+        `Currency "${paymentCurrency}" is not supported for Paystack`,
+      );
+    }
 
     const reference = `SUB-${Date.now()}-${randomBytes(3)
       .toString('hex')
@@ -420,7 +478,12 @@ export class TenantSubscriptionService {
           voucherId: voucher?.id,
           provider: providerValue,
           originalAmount,
+          originalCurrency,
           discountAmount,
+          exchangeRate:
+            conversion.sourceCurrency === conversion.targetCurrency
+              ? 1
+              : conversion.exchangeRate,
           amount: payableAmount,
           currency: paymentCurrency,
           status: payableAmount === 0 ? 'COMPLETED' : 'PENDING',
@@ -434,7 +497,9 @@ export class TenantSubscriptionService {
           voucherId: true,
           provider: true,
           originalAmount: true,
+          originalCurrency: true,
           discountAmount: true,
+          exchangeRate: true,
           amount: true,
           currency: true,
           status: true,
@@ -499,8 +564,13 @@ export class TenantSubscriptionService {
         subscription: {
           fee: tenant.subscriptionFee,
           originalAmount,
+          originalCurrency,
           discountAmount,
+          basePayableAmount,
           payableAmount,
+          payableCurrency: paymentCurrency,
+          preferredPaymentCurrency,
+          exchangeRate: payment.exchangeRate ?? 1,
           status: 'ACTIVE',
         },
         voucher: voucher
@@ -605,8 +675,13 @@ export class TenantSubscriptionService {
       subscription: {
         fee: tenant.subscriptionFee,
         originalAmount,
+        originalCurrency,
         discountAmount,
+        basePayableAmount,
         payableAmount,
+        payableCurrency: paymentCurrency,
+        preferredPaymentCurrency,
+        exchangeRate: payment.exchangeRate ?? 1,
         status:
           isExpired && tenant.subscriptionStatus === 'ACTIVE'
             ? 'EXPIRED'
@@ -636,7 +711,9 @@ export class TenantSubscriptionService {
         voucherId: true,
         provider: true,
         originalAmount: true,
+        originalCurrency: true,
         discountAmount: true,
+        exchangeRate: true,
         amount: true,
         currency: true,
         status: true,

@@ -95,11 +95,12 @@ export class TenantService {
             id: dto.subscriptionPriceId,
             isActive: true,
           },
-          select: {
-            id: true,
-            amount: true,
-            planType: true,
-          },
+        select: {
+          id: true,
+          amount: true,
+          currency: true,
+          planType: true,
+        },
         });
 
         if (!subscriptionPrice) {
@@ -119,6 +120,9 @@ export class TenantService {
             industry: dto.industry ?? 'OTHER',
             countryCode: this.normalizeCountryCode(dto.countryCode),
             currencyCode: this.normalizeCurrencyCode(dto.currencyCode),
+            subscriptionCurrencyCode: this.normalizeCurrencyCode(
+              subscriptionPrice.currency,
+            ),
             mobileLogo: dto.mobileLogo,
             tabletLogo: dto.tabletLogo,
             subscriptionFee: this.toMoney(subscriptionPrice.amount),

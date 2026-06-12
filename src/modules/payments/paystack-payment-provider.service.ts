@@ -1,5 +1,6 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { toMinorUnits } from './currency.utils.js';
 
 type PaystackConfig = {
   secretKey: string | null;
@@ -92,7 +93,13 @@ export class PaystackPaymentProviderService {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        amount: String(Math.round(input.amount * 100)),
+        amount: String(
+          toMinorUnits(
+            input.amount,
+            input.currency ?? paystackConfig.defaultCurrency ?? 'USD',
+            'paystack',
+          ),
+        ),
         email: input.email,
         currency: (
           input.currency ?? paystackConfig.defaultCurrency ?? 'USD'

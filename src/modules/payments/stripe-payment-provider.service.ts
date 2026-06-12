@@ -1,5 +1,6 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { toMinorUnits } from './currency.utils.js';
 
 type StripeConfig = {
   secretKey: string | null;
@@ -94,7 +95,13 @@ export class StripePaymentProviderService {
     );
     body.set(
       'line_items[0][price_data][unit_amount]',
-      String(Math.round(input.amount * 100)),
+      String(
+        toMinorUnits(
+          input.amount,
+          input.currency ?? stripeConfig.defaultCurrency ?? 'usd',
+          'stripe',
+        ),
+      ),
     );
     body.set(
       'line_items[0][price_data][product_data][name]',

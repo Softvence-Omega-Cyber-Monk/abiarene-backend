@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsString,
   Length,
+  Matches,
   Max,
   Min,
   MinLength,
@@ -28,24 +29,6 @@ export const INDUSTRY_TYPES = [
 
 export type IndustryType = (typeof INDUSTRY_TYPES)[number];
 
-export const STRIPE_SUPPORTED_CURRENCIES = [
-  'USD',
-  'EUR',
-  'GBP',
-  'AUD',
-  'CAD',
-  'BDT',
-  'SGD',
-  'INR',
-  'NGN',
-  'KES',
-  'ZAR',
-  'AED',
-  'SAR',
-  'JPY',
-  'CHF',
-] as const;
-
 export const PAYSTACK_SUPPORTED_CURRENCIES = [
   'NGN',
   'USD',
@@ -53,13 +36,6 @@ export const PAYSTACK_SUPPORTED_CURRENCIES = [
   'ZAR',
   'KES',
   'XOF',
-] as const;
-
-export const SUBSCRIPTION_PAYMENT_SUPPORTED_CURRENCIES = [
-  ...new Set([
-    ...STRIPE_SUPPORTED_CURRENCIES,
-    ...PAYSTACK_SUPPORTED_CURRENCIES,
-  ]),
 ] as const;
 
 export class CreateTenantDto {
@@ -287,13 +263,16 @@ export class InitiateSubscriptionPaymentDto {
 
   @ApiPropertyOptional({
     description:
-      'Currency for subscription checkout. Stripe supports a wider set, Paystack supports NGN, USD, GHS, ZAR, KES, XOF.',
-    enum: SUBSCRIPTION_PAYMENT_SUPPORTED_CURRENCIES,
+      'ISO 4217 currency code for subscription checkout. Stripe accepts a broad set of supported currencies; Paystack supports NGN, USD, GHS, ZAR, KES, XOF.',
     example: 'USD',
   })
   @IsOptional()
-  @IsIn(SUBSCRIPTION_PAYMENT_SUPPORTED_CURRENCIES)
-  currency?: (typeof SUBSCRIPTION_PAYMENT_SUPPORTED_CURRENCIES)[number];
+  @IsString()
+  @Length(3, 3)
+  @Matches(/^[A-Z]{3}$/, {
+    message: 'currency must be a 3-letter uppercase ISO 4217 code',
+  })
+  currency?: string;
 
   @ApiPropertyOptional({
     description: 'Tenant-scoped subscription voucher code created by admin',
