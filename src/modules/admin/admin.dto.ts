@@ -1,118 +1,42 @@
-import { Type } from 'class-transformer';
-import { IsBoolean, IsEmail, IsIn, IsInt, IsOptional, IsString, Length, Max, Min, MinLength } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsEmail,
+  IsBoolean,
+  IsIn,
+  IsNumber,
+  IsOptional,
+  Matches,
+  Min,
+  IsString,
+} from 'class-validator';
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+
+export const SUBSCRIPTION_PLAN_TYPES = [
+  'FREE',
+  'MONTHLY',
+  'YEARLY',
+] as const;
+
+export type SubscriptionPlanType = (typeof SUBSCRIPTION_PLAN_TYPES)[number];
 
 export class AdminSignupDto {
   @ApiProperty({ description: 'Admin email', example: 'admin@example.com' })
   @IsEmail()
   email!: string;
 
-  @ApiProperty({ description: 'Admin password (min 6 chars)', minLength: 6 })
+  @ApiProperty({
+    description: 'Admin 4-digit PIN',
+    minLength: 4,
+    maxLength: 4,
+    pattern: '^\\d{4}$',
+    example: '1234',
+  })
   @IsString()
-  @MinLength(6)
-  password!: string;
+  @Matches(/^\d{4}$/, { message: 'PIN must be exactly 4 digits' })
+  pin!: string;
 
   @ApiProperty({ description: 'Admin name', example: 'John Admin' })
   @IsString()
   name!: string;
-}
-
-export class AdminLoginDto {
-  @ApiProperty({ description: 'Admin email', example: 'admin@example.com' })
-  @IsEmail()
-  email!: string;
-
-  @ApiProperty({ description: 'Admin password' })
-  @IsString()
-  password!: string;
-}
-
-export class CreateTenantDto {
-  @ApiProperty({ description: 'Tenant name', example: 'My Restaurant' })
-  @IsString()
-  @MinLength(3)
-  name!: string;
-
-  @ApiProperty({ description: 'Industry type', example: 'restaurant', required: false })
-  @IsOptional()
-  @IsString()
-  industry?: string;
-
-  @ApiProperty({ description: 'Subscription fee', example: 129.0, required: false })
-  @IsOptional()
-  subscriptionFee?: number;
-}
-
-export class CreateTenantRoleDto {
-  @ApiProperty({ description: 'Role name', example: 'Manager' })
-  @IsString()
-  @MinLength(2)
-  name!: string;
-
-  @ApiProperty({ description: 'Whether role is active', example: true, required: false })
-  @IsOptional()
-  @IsBoolean()
-  isActive?: boolean;
-}
-
-export class ListTenantRolesDto {
-  @ApiProperty({ default: 1, minimum: 1, required: false })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page = 1;
-
-  @ApiProperty({ default: 20, minimum: 1, maximum: 100, required: false })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit = 20;
-}
-
-export class CreateTenantUserDto {
-  @ApiProperty({ description: 'User full name', example: 'Jane Manager' })
-  @IsString()
-  @Length(2, 80)
-  name!: string;
-
-  @ApiProperty({ description: '4-digit PIN', example: '1234' })
-  @IsString()
-  @Length(4, 4)
-  pin!: string;
-
-  @ApiProperty({ description: 'Role ID under this tenant' })
-  @IsString()
-  roleId!: string;
-
-  @ApiProperty({ description: 'User status', example: 'ACTIVE', required: false, enum: ['ACTIVE', 'INACTIVE'] })
-  @IsOptional()
-  @IsIn(['ACTIVE', 'INACTIVE'])
-  status?: 'ACTIVE' | 'INACTIVE';
-}
-
-export class ListTenantUsersDto {
-  @ApiProperty({ default: 1, minimum: 1, required: false })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page = 1;
-
-  @ApiProperty({ default: 20, minimum: 1, maximum: 100, required: false })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit = 20;
-
-  @ApiProperty({ description: 'Search by user name', required: false })
-  @IsOptional()
-  @IsString()
-  search?: string;
 }
 
 export class AdminResponse {
@@ -134,4 +58,64 @@ export class AdminResponse {
 
 export class CreateAdminDto {}
 export class UpdateAdminDto {}
-export class ListAdminDto { @IsOptional() @IsString() from?: string; @IsOptional() @IsString() to?: string; }
+export class ListAdminDto {
+  @IsOptional() @IsString() from?: string;
+  @IsOptional() @IsString() to?: string;
+}
+
+export class CreateSubscriptionPriceDto {
+  @ApiProperty({
+    enum: SUBSCRIPTION_PLAN_TYPES,
+    example: 'MONTHLY',
+  })
+  @IsIn(SUBSCRIPTION_PLAN_TYPES)
+  planType!: SubscriptionPlanType;
+
+  @ApiPropertyOptional({ example: 'Base monthly subscription price' })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiProperty({ example: 99.99 })
+  @IsNumber()
+  @Min(0)
+  amount!: number;
+
+  @ApiPropertyOptional({ example: 'USD', default: 'USD' })
+  @IsOptional()
+  @IsString()
+  currency?: string;
+
+  @ApiPropertyOptional({ example: true, default: true })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
+
+export class UpdateSubscriptionPriceDto extends PartialType(CreateSubscriptionPriceDto) {}
+
+export class CreateSubscriptionVoucherDto {
+  @ApiProperty({ example: 'TENANT-OFFER-100' })
+  @IsString()
+  code!: string;
+
+  @ApiProperty({ example: 25 })
+  @IsNumber()
+  @Min(0)
+  amountOff!: number;
+
+  @ApiPropertyOptional({
+    example: '2026-12-31T23:59:59.000Z',
+    description: 'Optional voucher expiry date',
+  })
+  @IsOptional()
+  @IsString()
+  expiresAt?: string;
+
+  @ApiPropertyOptional({ example: true, default: true })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
+
+export class UpdateSubscriptionVoucherDto extends PartialType(CreateSubscriptionVoucherDto) {}

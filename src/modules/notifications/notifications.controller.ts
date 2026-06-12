@@ -1,9 +1,20 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Query,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
-import { Roles } from '../../common/decorators/roles.decorator.js';
-import { AuthUser } from '../../common/interfaces/auth-user.interface.js';
-import { CreateNotificationsDto, ListNotificationsDto, UpdateNotificationsDto } from './notifications.dto.js';
+import type { AuthUser } from '../../common/interfaces/auth-user.interface.js';
+import { ListNotificationsDto } from './notifications.dto.js';
 import { NotificationsService } from './notifications.service.js';
 
 @ApiTags('Notifications')
@@ -12,46 +23,48 @@ import { NotificationsService } from './notifications.service.js';
 export class NotificationsController {
   constructor(private readonly service: NotificationsService) {}
 
-  private tenantId(user?: AuthUser) {
-    if (!user?.tenantId) throw new UnauthorizedException('Missing tenant context');
-    return user.tenantId;
-  }
-
-  @Post()
-  @Roles('manager', 'admin')
-  @ApiOperation({ summary: 'Create notification payload' })
-  @ApiResponse({ status: 201, description: 'Notification payload created' })
-  create(@CurrentUser() user: AuthUser | undefined, @Body() dto: CreateNotificationsDto) {
-    return this.service.create(this.tenantId(user), dto);
-  }
-
   @Get()
-  @ApiOperation({ summary: 'List notification payloads' })
-  @ApiResponse({ status: 200, description: 'Notification payloads retrieved' })
-  list(@CurrentUser() user: AuthUser | undefined, @Query() dto: ListNotificationsDto) {
-    return this.service.list(this.tenantId(user), dto);
+  @ApiOperation({ summary: 'List notifications for the current user scope' })
+  @ApiResponse({ status: 200, description: 'Notifications retrieved' })
+  @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
+  @ApiQuery({ name: 'limit', required: false, type: String, example: '20' })
+  @ApiQuery({
+    name: 'isRead',
+    required: false,
+    type: String,
+    example: 'false',
+  })
+  list(
+    @CurrentUser() user: AuthUser,
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
+    @Query('isRead') isRead?: string,
+  ) {
+    return this.service.list(user, {
+      page: parseInt(page, 10),
+      limit: parseInt(limit, 10),
+      ...(isRead === undefined ? {} : { isRead: isRead === 'true' }),
+    } as ListNotificationsDto);
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Get notification payload by ID' })
-  @ApiResponse({ status: 200, description: 'Notification payload retrieved' })
-  read(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
-    return this.service.read(this.tenantId(user), id);
+  @Get('unread-count')
+  @ApiOperation({ summary: 'Get unread notification count for the current user scope' })
+  @ApiResponse({ status: 200, description: 'Unread notification count retrieved' })
+  unreadCount(@CurrentUser() user: AuthUser) {
+    return this.service.getUnreadCount(user);
   }
 
-  @Patch(':id')
-  @Roles('manager', 'admin')
-  @ApiOperation({ summary: 'Update notification payload by ID' })
-  @ApiResponse({ status: 200, description: 'Notification payload updated' })
-  update(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string, @Body() dto: UpdateNotificationsDto) {
-    return this.service.update(this.tenantId(user), id, dto);
+  @Patch(':id/read')
+  @ApiOperation({ summary: 'Mark a notification as read' })
+  @ApiResponse({ status: 200, description: 'Notification marked as read' })
+  markRead(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.service.markRead(user, id);
   }
 
-  @Delete(':id')
-  @Roles('admin')
-  @ApiOperation({ summary: 'Delete notification payload by ID' })
-  @ApiResponse({ status: 200, description: 'Notification payload deleted' })
-  delete(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
-    return this.service.delete(this.tenantId(user), id);
+  @Patch('read-all')
+  @ApiOperation({ summary: 'Mark all notifications as read for the current user scope' })
+  @ApiResponse({ status: 200, description: 'All notifications marked as read' })
+  markAllRead(@CurrentUser() user: AuthUser) {
+    return this.service.markAllRead(user);
   }
 }

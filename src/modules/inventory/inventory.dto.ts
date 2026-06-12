@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsIn, IsInt, IsNumber, IsOptional, IsString } from 'class-validator';
 import { PaginationDto } from '../../common/dto/pagination.dto.js';
 
 export class CreateInventoryDto {
@@ -39,3 +39,24 @@ export class CreateInventoryDto {
 export class UpdateInventoryDto extends PartialType(CreateInventoryDto) {}
 
 export class ListInventoryDto extends PaginationDto {}
+
+export class ListInventoryDeletionRequestsDto extends PaginationDto {
+  @ApiPropertyOptional({
+    description: 'Filter deletion requests by status',
+    enum: ['PENDING', 'APPROVED', 'REJECTED'],
+    example: 'PENDING',
+  })
+  @IsOptional()
+  @IsIn(['PENDING', 'APPROVED', 'REJECTED'])
+  status?: 'PENDING' | 'APPROVED' | 'REJECTED';
+}
+
+export class RejectInventoryDeletionRequestDto {
+  @ApiPropertyOptional({
+    description: 'Optional rejection reason for supervisor audit context',
+    example: 'Item should remain until month-end stock count is complete.',
+  })
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}

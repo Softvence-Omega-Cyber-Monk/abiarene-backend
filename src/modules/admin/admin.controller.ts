@@ -1,5 +1,19 @@
-import { Body, Controller, Get, Param, Post, Query, UnauthorizedException } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UnauthorizedException,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -7,13 +21,10 @@ import { AuthUser } from '../../common/interfaces/auth-user.interface.js';
 import { AdminService } from './admin.service.js';
 import {
   AdminSignupDto,
-  AdminLoginDto,
-  CreateTenantDto,
-  AdminResponse,
-  CreateTenantRoleDto,
-  ListTenantRolesDto,
-  CreateTenantUserDto,
-  ListTenantUsersDto,
+  CreateSubscriptionPriceDto,
+  CreateSubscriptionVoucherDto,
+  UpdateSubscriptionPriceDto,
+  UpdateSubscriptionVoucherDto,
 } from './admin.dto.js';
 
 @ApiTags('Admin')
@@ -30,76 +41,115 @@ export class AdminController {
     return this.adminService.signup(dto);
   }
 
-  @Post('login')
-  @Public()
-  @ApiOperation({ summary: 'Admin login' })
-  @ApiResponse({ status: 200, description: 'Login successful' })
-  @ApiResponse({ status: 401, description: 'Invalid credentials' })
-  login(@Body() dto: AdminLoginDto) {
-    return this.adminService.login(dto);
-  }
-
-  @Post('tenants')
-  @Roles('admin')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Create a new tenant' })
-  @ApiResponse({ status: 201, description: 'Tenant created' })
-  createTenant(@Body() dto: CreateTenantDto) {
-    return this.adminService.createTenant(dto);
-  }
-
-  @Get('tenants')
-  @Roles('admin')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'List all tenants' })
-  @ApiResponse({ status: 200, description: 'Tenants list retrieved' })
-  listTenants(@Query('page') page: string = '1', @Query('limit') limit: string = '10') {
-    return this.adminService.listTenants(parseInt(page), parseInt(limit));
-  }
-
-  @Post('tenants/:tenantId/roles')
-  @Roles('admin')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Create a role under a tenant' })
-  @ApiResponse({ status: 201, description: 'Tenant role created' })
-  createTenantRole(@Param('tenantId') tenantId: string, @Body() dto: CreateTenantRoleDto) {
-    return this.adminService.createTenantRole(tenantId, dto);
-  }
-
-  @Get('tenants/:tenantId/roles')
-  @Roles('admin')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'List roles under a tenant' })
-  @ApiResponse({ status: 200, description: 'Tenant roles retrieved' })
-  listTenantRoles(@Param('tenantId') tenantId: string, @Query() dto: ListTenantRolesDto) {
-    return this.adminService.listTenantRoles(tenantId, dto);
-  }
-
-  @Post('tenants/:tenantId/users')
-  @Roles('admin')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Create a user under a tenant' })
-  @ApiResponse({ status: 201, description: 'Tenant user created' })
-  createTenantUser(@Param('tenantId') tenantId: string, @Body() dto: CreateTenantUserDto) {
-    return this.adminService.createTenantUser(tenantId, dto);
-  }
-
-  @Get('tenants/:tenantId/users')
-  @Roles('admin')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'List users under a tenant' })
-  @ApiResponse({ status: 200, description: 'Tenant users retrieved' })
-  listTenantUsers(@Param('tenantId') tenantId: string, @Query() dto: ListTenantUsersDto) {
-    return this.adminService.listTenantUsers(tenantId, dto);
-  }
-
   @Get('dashboard')
   @Roles('admin')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get admin dashboard' })
   @ApiResponse({ status: 200, description: 'Dashboard data' })
   dashboard(@CurrentUser() user: AuthUser | undefined) {
-    if (!user?.tenantId) throw new UnauthorizedException('Missing tenant context');
-    return this.adminService.dashboard(user.tenantId);
+    if (!user?.sub) throw new UnauthorizedException('Missing admin context');
+    return this.adminService.dashboard();
+  }
+
+  @Get('me')
+  @Roles('admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get admin own profile' })
+  @ApiResponse({ status: 200, description: 'Admin profile retrieved' })
+  getMyProfile(@CurrentUser() user: AuthUser | undefined) {
+    if (!user?.sub) throw new UnauthorizedException('Missing admin context');
+    return this.adminService.getMyProfile(user.sub);
+  }
+
+  @Post('subscription-prices')
+  @Roles('admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create a subscription price' })
+  @ApiResponse({ status: 201, description: 'Subscription price created' })
+  createSubscriptionPrice(
+    @CurrentUser() user: AuthUser | undefined,
+    @Body() dto: CreateSubscriptionPriceDto,
+  ) {
+    if (!user?.sub) throw new UnauthorizedException('Missing admin context');
+    return this.adminService.createSubscriptionPrice(user.sub, dto);
+  }
+
+  @Get('subscription-prices')
+  @Public()
+  @ApiOperation({ summary: 'Get all subscription prices' })
+  @ApiResponse({ status: 200, description: 'Subscription prices retrieved' })
+  listSubscriptionPrices() {
+    return this.adminService.listSubscriptionPrices();
+  }
+
+  @Patch('subscription-prices/:id')
+  @Roles('admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update a subscription price' })
+  @ApiResponse({ status: 200, description: 'Subscription price updated' })
+  updateSubscriptionPrice(
+    @CurrentUser() user: AuthUser | undefined,
+    @Param('id') id: string,
+    @Body() dto: UpdateSubscriptionPriceDto,
+  ) {
+    if (!user?.sub) throw new UnauthorizedException('Missing admin context');
+    return this.adminService.updateSubscriptionPrice(user.sub, id, dto);
+  }
+
+  @Delete('subscription-prices/:id')
+  @Roles('admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete a subscription price' })
+  @ApiResponse({ status: 200, description: 'Subscription price deleted' })
+  deleteSubscriptionPrice(
+    @CurrentUser() user: AuthUser | undefined,
+    @Param('id') id: string,
+  ) {
+    if (!user?.sub) throw new UnauthorizedException('Missing admin context');
+    return this.adminService.deleteSubscriptionPrice(id);
+  }
+
+  @Post('tenants/:tenantId/subscription-vouchers')
+  @Roles('admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create a tenant-scoped subscription voucher' })
+  @ApiResponse({ status: 201, description: 'Subscription voucher created' })
+  createSubscriptionVoucher(
+    @CurrentUser() user: AuthUser | undefined,
+    @Param('tenantId') tenantId: string,
+    @Body() dto: CreateSubscriptionVoucherDto,
+  ) {
+    if (!user?.sub) throw new UnauthorizedException('Missing admin context');
+    return this.adminService.createSubscriptionVoucher(user.sub, tenantId, dto);
+  }
+
+  @Get('tenants/:tenantId/subscription-vouchers')
+  @Roles('admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List tenant-scoped subscription vouchers' })
+  @ApiResponse({ status: 200, description: 'Subscription vouchers retrieved' })
+  listSubscriptionVouchers(@Param('tenantId') tenantId: string) {
+    return this.adminService.listSubscriptionVouchers(tenantId);
+  }
+
+  @Patch('subscription-vouchers/:id')
+  @Roles('admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update a tenant-scoped subscription voucher' })
+  @ApiResponse({ status: 200, description: 'Subscription voucher updated' })
+  updateSubscriptionVoucher(
+    @Param('id') id: string,
+    @Body() dto: UpdateSubscriptionVoucherDto,
+  ) {
+    return this.adminService.updateSubscriptionVoucher(id, dto);
+  }
+
+  @Delete('subscription-vouchers/:id')
+  @Roles('admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete a tenant-scoped subscription voucher' })
+  @ApiResponse({ status: 200, description: 'Subscription voucher deleted' })
+  deleteSubscriptionVoucher(@Param('id') id: string) {
+    return this.adminService.deleteSubscriptionVoucher(id);
   }
 }

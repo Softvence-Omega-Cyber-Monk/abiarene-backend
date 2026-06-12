@@ -1,14 +1,18 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
+  IsEmail,
+  IsEnum,
   IsIn,
   IsInt,
+  Length,
+  Matches,
   IsOptional,
   IsString,
-  Length,
   Max,
   Min,
 } from 'class-validator';
+import { StaffRoleName } from '../../common/constants/role-name.js';
 
 export class CreateUsersDto {
   @ApiProperty({ description: 'User full name', minLength: 2, maxLength: 80 })
@@ -16,14 +20,42 @@ export class CreateUsersDto {
   @Length(2, 80)
   name!: string;
 
-  @ApiProperty({ description: '4-digit PIN', minLength: 4, maxLength: 4 })
+  @ApiPropertyOptional({
+    description: 'User image URL',
+    example: 'https://res.cloudinary.com/demo/image/upload/sample.jpg',
+  })
+  @IsOptional()
+  @IsString()
+  image?: string;
+
+  @ApiProperty({ description: 'User email', example: 'server@example.com' })
+  @IsEmail()
+  email!: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional 4-digit PIN',
+    minLength: 4,
+    maxLength: 4,
+    pattern: '^\\d{4}$',
+    example: '1234',
+  })
+  @IsOptional()
   @IsString()
   @Length(4, 4)
-  pin!: string;
+  @Matches(/^\d{4}$/, { message: 'PIN must be exactly 4 digits' })
+  pin?: string;
 
-  @ApiProperty({ description: 'Role ID' })
-  @IsString()
-  roleId!: string;
+  @ApiProperty({
+    description: 'Role',
+    enum: StaffRoleName,
+    enumName: 'StaffRoleName',
+    example: StaffRoleName.SERVER,
+  })
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.toUpperCase() : value,
+  )
+  @IsEnum(StaffRoleName)
+  role!: StaffRoleName;
 }
 
 export class UpdateUsersDto extends PartialType(CreateUsersDto) {
@@ -31,6 +63,40 @@ export class UpdateUsersDto extends PartialType(CreateUsersDto) {
   @IsOptional()
   @IsIn(['ACTIVE', 'INACTIVE'])
   status?: 'ACTIVE' | 'INACTIVE';
+}
+
+export class UpdateMyProfileDto {
+  @ApiPropertyOptional({ description: 'User full name', minLength: 2, maxLength: 80 })
+  @IsOptional()
+  @IsString()
+  @Length(2, 80)
+  name?: string;
+
+  @ApiPropertyOptional({
+    description: 'User image URL',
+    example: 'https://res.cloudinary.com/demo/image/upload/sample.jpg',
+  })
+  @IsOptional()
+  @IsString()
+  image?: string;
+
+  @ApiPropertyOptional({ description: 'User email', example: 'manager@example.com' })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional 4-digit PIN',
+    minLength: 4,
+    maxLength: 4,
+    pattern: '^\\d{4}$',
+    example: '1234',
+  })
+  @IsOptional()
+  @IsString()
+  @Length(4, 4)
+  @Matches(/^\d{4}$/, { message: 'PIN must be exactly 4 digits' })
+  pin?: string;
 }
 
 export class ListUsersDto {
@@ -53,4 +119,24 @@ export class ListUsersDto {
   @IsOptional()
   @IsString()
   search?: string;
+}
+
+export class ResetUserCredentialsDto {
+  @ApiPropertyOptional({ description: 'New user email', example: 'staff@example.com' })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @ApiPropertyOptional({
+    description: 'New 4-digit PIN',
+    minLength: 4,
+    maxLength: 4,
+    pattern: '^\\d{4}$',
+    example: '1234',
+  })
+  @IsOptional()
+  @IsString()
+  @Length(4, 4)
+  @Matches(/^\d{4}$/, { message: 'PIN must be exactly 4 digits' })
+  pin?: string;
 }

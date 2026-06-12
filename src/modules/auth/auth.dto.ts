@@ -1,15 +1,43 @@
-import { IsString, Length, IsUUID, IsOptional } from 'class-validator';
+import { IsEmail, IsString, Matches, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class PinLoginDto {
-  @ApiProperty({ description: '4-digit user PIN', minLength: 4, maxLength: 4, example: '1234' })
+export class RegisterSupervisorDto {
+  @ApiProperty({ description: 'Supervisor name', example: 'Sara Supervisor' })
   @IsString()
-  @Length(4, 4)
+  @MinLength(2)
+  name!: string;
+
+  @ApiProperty({ description: 'Supervisor email', example: 'supervisor@example.com' })
+  @IsEmail()
+  email!: string;
+
+  @ApiProperty({
+    description: '4-digit supervisor PIN',
+    minLength: 4,
+    maxLength: 4,
+    pattern: '^\\d{4}$',
+    example: '1234',
+  })
+  @IsString()
+  @Matches(/^\d{4}$/, { message: 'PIN must be exactly 4 digits' })
+  pin!: string;
+}
+
+export class LoginDto {
+  @ApiProperty({
+    description: '4-digit user PIN',
+    minLength: 4,
+    maxLength: 4,
+    pattern: '^\\d{4}$',
+    example: '1234',
+  })
+  @IsString()
+  @Matches(/^\d{4}$/, { message: 'PIN must be exactly 4 digits' })
   pin!: string;
 
-  @ApiProperty({ description: 'Tenant ID', example: 'tenant-demo-1' })
-  @IsString()
-  tenantId!: string;
+  @ApiProperty({ description: 'User email', example: 'user@example.com' })
+  @IsEmail()
+  email!: string;
 }
 
 export class TenantResponse {
@@ -18,6 +46,15 @@ export class TenantResponse {
 
   @ApiProperty()
   name: string;
+
+  @ApiProperty()
+  industry: string;
+
+  @ApiProperty()
+  countryCode: string;
+
+  @ApiProperty()
+  currencyCode: string;
 
   @ApiProperty()
   status: string;
@@ -32,6 +69,9 @@ export class UserResponse {
 
   @ApiProperty()
   name: string;
+
+  @ApiProperty()
+  email: string;
 
   @ApiProperty()
   role: { id: string; name: string; isActive: boolean };

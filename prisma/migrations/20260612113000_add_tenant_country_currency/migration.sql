@@ -1,0 +1,2 @@
+ALTER TABLE "tenants" ADD COLUMN "countryCode" TEXT NOT NULL DEFAULT 'BD';
+ALTER TABLE "tenants" ADD COLUMN "currencyCode" TEXT NOT NULL DEFAULT 'BDT';

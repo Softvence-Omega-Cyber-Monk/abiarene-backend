@@ -4,9 +4,14 @@
   "description": "",
   "author": "",
   "private": true,
+  "engines": {
+    "node": "22.x",
+    "pnpm": "9.x"
+  },
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
+    "build:render": "corepack enable && corepack prepare pnpm@9.15.9 --activate && pnpm install --no-frozen-lockfile && pnpm run prisma:generate && pnpm run build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -23,6 +28,7 @@
     "prisma:seed": "prisma db seed"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.3",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.3",
     "@nestjs/core": "^11.0.1",
@@ -48,7 +54,6 @@
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.1",
-    "@prisma/client": "^6.19.3",
     "@types/bcrypt": "^6.0.0",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",

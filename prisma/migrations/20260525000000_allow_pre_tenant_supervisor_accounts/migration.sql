@@ -1,0 +1,6 @@
+ALTER TABLE "users"
+ADD COLUMN "pendingRole" "RoleName";
+
+ALTER TABLE "users"
+ALTER COLUMN "roleId" DROP NOT NULL,
+ALTER COLUMN "tenantId" DROP NOT NULL;

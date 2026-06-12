@@ -1,17 +1,29 @@
-import { ApiProperty, PartialType } from '@nestjs/swagger';
-import { IsString } from 'class-validator';
-import { PaginationDto } from '../../common/dto/pagination.dto.js';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { IsBoolean, IsInt, IsOptional, Max, Min } from 'class-validator';
 
-export class CreateNotificationsDto {
-  @ApiProperty({ description: 'Notification title' })
-  @IsString()
-  title!: string;
+export class ListNotificationsDto {
+  @ApiPropertyOptional({ default: 1, minimum: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page = 1;
 
-  @ApiProperty({ description: 'Notification message' })
-  @IsString()
-  message!: string;
+  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit = 20;
+
+  @ApiPropertyOptional({
+    description: 'Filter notifications by read state',
+    example: false,
+  })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  isRead?: boolean;
 }
-
-export class UpdateNotificationsDto extends PartialType(CreateNotificationsDto) {}
-
-export class ListNotificationsDto extends PaginationDto {}

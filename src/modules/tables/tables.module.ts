@@ -1,10 +1,14 @@
 import { Module } from '@nestjs/common';
-import { TablesController } from './tables.controller.js';
-import { TablesService } from './tables.service.js';
+import { NotificationsModule } from '../notifications/notifications.module.js';
+import { AdminTablesController } from './controllers/admin-tables.controller.js';
+import { TenantTablesController } from './controllers/tenant-tables.controller.js';
+import { AdminTablesService } from './services/admin-tables.service.js';
+import { TenantTablesService } from './services/tenant-tables.service.js';
 
 @Module({
-  controllers: [TablesController],
-  providers: [TablesService],
-  exports: [TablesService],
+  imports: [NotificationsModule],
+  controllers: [AdminTablesController, TenantTablesController],
+  providers: [AdminTablesService, TenantTablesService],
+  exports: [AdminTablesService, TenantTablesService],
 })
 export class TablesModule {}

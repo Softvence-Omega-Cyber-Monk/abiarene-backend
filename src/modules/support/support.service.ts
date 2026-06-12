@@ -1,34 +1,210 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { RoleName } from '../../common/constants/role-name.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { CreateSupportDto, ListSupportDto, UpdateSupportDto } from './support.dto.js';
+import { buildPaginatedResponse } from '../../common/utils/pagination.js';
+import { AuthUser } from '../../common/interfaces/auth-user.interface.js';
+import {
+  CreateSupportDto,
+  CreateSupportMessageDto,
+  ListSupportDto,
+  UpdateSupportStatusDto,
+} from './support.dto.js';
 
 @Injectable()
 export class SupportService {
   constructor(private readonly prisma: PrismaService) {}
 
-  create(tenantId: string, dto: CreateSupportDto) {
-    return this.prisma.supportTicket.create({ data: { ...dto, tenantId } as any });
+  private readonly supportInclude = {
+    tenant: {
+      select: {
+        id: true,
+        name: true,
+      },
+    },
+    messages: {
+      orderBy: {
+        createdAt: 'asc' as const,
+      },
+    },
+  };
+
+  private formatIssue(
+    ticket: {
+      id: string;
+      tenantId: string;
+      subject: string;
+      message: string;
+      status: 'OPEN' | 'CLOSED';
+      response: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+      tenant?: { id: string; name: string } | null;
+      messages?: {
+        id: string;
+        ticketId: string;
+        senderRole: string;
+        senderName: string;
+        senderEmail: string;
+        message: string;
+        createdAt: Date;
+      }[];
+    } | null,
+  ) {
+    if (!ticket) {
+      return null;
+    }
+
+    const { subject, message, ...rest } = ticket;
+
+    return {
+      ...rest,
+      issueType: subject,
+      description: message,
+    };
   }
 
-  list(tenantId: string, dto: ListSupportDto) {
-    return this.prisma.supportTicket.findMany({
-      where: { tenantId } as any,
-      skip: (dto.page - 1) * dto.limit,
-      take: dto.limit,
-      orderBy: { createdAt: 'desc' } as any,
+  private managerWhere(user: AuthUser) {
+    if (!user.tenantId) {
+      throw new ForbiddenException('Missing tenant context');
+    }
+
+    return { tenantId: user.tenantId };
+  }
+
+  private messageSender(user: AuthUser) {
+    if (user.role?.toUpperCase() === RoleName.ADMIN) {
+      return {
+        senderRole: 'ADMIN' as const,
+        senderName: user.name ?? 'Admin',
+        senderEmail: user.email ?? 'admin',
+      };
+    }
+
+    return {
+      senderRole: 'SUPERVISOR' as const,
+      senderName: user.name ?? 'Supervisor',
+      senderEmail: user.email ?? 'supervisor',
+    };
+  }
+
+  async create(user: AuthUser, dto: CreateSupportDto) {
+    const where = this.managerWhere(user);
+
+    const ticket = await this.prisma.supportTicket.create({
+      data: {
+        tenantId: where.tenantId,
+        subject: dto.issueType,
+        message: dto.description,
+        status: 'OPEN',
+        messages: {
+          create: {
+            ...this.messageSender(user),
+            message: dto.description,
+          },
+        },
+      } as any,
+      include: this.supportInclude,
     });
+
+    return this.formatIssue(ticket);
   }
 
-  read(tenantId: string, id: string) {
-    return this.prisma.supportTicket.findFirst({ where: { tenantId, id } as any });
+  async list(user: AuthUser, dto: ListSupportDto) {
+    const where =
+      user.role?.toUpperCase() === RoleName.ADMIN
+        ? { status: dto.status }
+        : { ...this.managerWhere(user), status: dto.status };
+
+    const [tickets, total] = await Promise.all([
+      this.prisma.supportTicket.findMany({
+        where: where as any,
+        skip: (dto.page - 1) * dto.limit,
+        take: dto.limit,
+        include: this.supportInclude,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.supportTicket.count({ where: where as any }),
+    ]);
+
+    return buildPaginatedResponse(
+      tickets.map((ticket) => this.formatIssue(ticket)),
+      dto.page,
+      dto.limit,
+      total,
+    );
   }
 
-  async update(tenantId: string, id: string, dto: UpdateSupportDto) {
-    await this.prisma.supportTicket.updateMany({ where: { tenantId, id } as any, data: dto as any });
-    return this.read(tenantId, id);
+  async read(user: AuthUser, id: string) {
+    const where =
+      user.role?.toUpperCase() === RoleName.ADMIN
+        ? { id }
+        : { id, ...this.managerWhere(user) };
+
+    const ticket = await this.prisma.supportTicket.findFirst({
+      where: where as any,
+      include: this.supportInclude,
+    });
+
+    if (!ticket) {
+      throw new NotFoundException('Support issue not found');
+    }
+
+    return this.formatIssue(ticket);
   }
 
-  delete(tenantId: string, id: string) {
-    return this.prisma.supportTicket.deleteMany({ where: { tenantId, id } as any });
+  async addMessage(user: AuthUser, id: string, dto: CreateSupportMessageDto) {
+    const where =
+      user.role?.toUpperCase() === RoleName.ADMIN
+        ? { id }
+        : { id, ...this.managerWhere(user) };
+
+    const ticket = await this.prisma.supportTicket.findFirst({
+      where: where as any,
+      select: { id: true, status: true },
+    });
+
+    if (!ticket) {
+      throw new NotFoundException('Support issue not found');
+    }
+
+    if (ticket.status === 'CLOSED') {
+      throw new BadRequestException('This support issue is closed. Conversation is disabled.');
+    }
+
+    await this.prisma.supportTicketMessage.create({
+      data: {
+        ticketId: ticket.id,
+        ...this.messageSender(user),
+        message: dto.message,
+      } as any,
+    });
+
+    return this.read(user, id);
+  }
+
+  async updateStatus(
+    user: AuthUser,
+    id: string,
+    dto: UpdateSupportStatusDto,
+  ) {
+    if (user.role?.toUpperCase() !== RoleName.ADMIN) {
+      throw new ForbiddenException('This route is for admin only');
+    }
+
+    const ticket = await this.prisma.supportTicket.findFirst({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!ticket) {
+      throw new NotFoundException('Support issue not found');
+    }
+
+    await this.prisma.supportTicket.update({
+      where: { id },
+      data: { status: dto.status },
+    });
+
+    return this.read(user, id);
   }
 }

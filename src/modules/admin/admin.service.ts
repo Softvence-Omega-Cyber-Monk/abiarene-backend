@@ -1,17 +1,19 @@
-import { Injectable, BadRequestException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Prisma } from '@prisma/client';
+import { RoleName } from '../../common/constants/role-name.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import {
   AdminSignupDto,
-  AdminLoginDto,
-  CreateTenantDto,
-  CreateTenantRoleDto,
-  ListTenantRolesDto,
-  CreateTenantUserDto,
-  ListTenantUsersDto,
+  CreateSubscriptionPriceDto,
+  CreateSubscriptionVoucherDto,
+  UpdateSubscriptionPriceDto,
+  UpdateSubscriptionVoucherDto,
 } from './admin.dto.js';
-import * as bcrypt from 'bcrypt';
+import type { SubscriptionPlanType } from './admin.dto.js';
 
 @Injectable()
 export class AdminService {
@@ -20,203 +22,328 @@ export class AdminService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async signup(dto: AdminSignupDto) {
-    const existingAdmin = await this.prisma.admin.findUnique({
-      where: { email: dto.email },
-    });
+  private toMoney(value: number) {
+    return Math.round(value * 100) / 100;
+  }
 
-    if (existingAdmin) {
-      throw new BadRequestException('Email already registered');
+  private toPercentChange(current: number, previous: number) {
+    if (previous === 0) {
+      return current === 0 ? 0 : 100;
     }
 
-    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    return this.toMoney(((current - previous) / previous) * 100);
+  }
+
+  private getSubscriptionPlanLabel(planType: SubscriptionPlanType) {
+    switch (planType) {
+      case 'FREE':
+        return 'Free Plan';
+      case 'MONTHLY':
+        return 'Monthly Plan';
+      case 'YEARLY':
+        return 'Yearly Plan';
+    }
+  }
+
+  async signup(dto: AdminSignupDto) {
+    const [existingAdmin, existingUser] = await Promise.all([
+      this.prisma.admin.findUnique({
+        where: { email: dto.email },
+      }),
+      this.prisma.user.findFirst({
+        where: { email: dto.email },
+        select: { id: true },
+      }),
+    ]);
+
+    if (existingAdmin || existingUser) {
+      throw new BadRequestException('Email already registered');
+    }
 
     const admin = await this.prisma.admin.create({
       data: {
         email: dto.email,
-        password: hashedPassword,
+        pin: dto.pin,
         name: dto.name,
         status: 'ACTIVE',
       },
-      select: { id: true, email: true, name: true, status: true, createdAt: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        status: true,
+        createdAt: true,
+      },
     });
 
-    const payload = { sub: admin.id, email: admin.email, role: 'admin' };
+    const payload = { sub: admin.id, email: admin.email, role: RoleName.ADMIN };
+    const authPayload = {
+      ...payload,
+      tokenVersion: 0,
+    };
 
     return {
-      accessToken: await this.jwtService.signAsync(payload),
+      accessToken: await this.jwtService.signAsync(authPayload),
       admin,
     };
   }
 
-  async login(dto: AdminLoginDto) {
-    const admin = await this.prisma.admin.findUnique({
-      where: { email: dto.email },
+  getMyProfile(adminId: string) {
+    return this.prisma.admin.findUnique({
+      where: { id: adminId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        image: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
+  }
 
-    if (!admin) {
-      throw new UnauthorizedException('Invalid email or password');
-    }
+  async dashboard() {
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const previousMonthStart = new Date(
+      now.getFullYear(),
+      now.getMonth() - 1,
+      1,
+    );
 
-    const isPasswordValid = await bcrypt.compare(dto.password, admin.password);
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid email or password');
-    }
+    const [
+      totalTenants,
+      previousMonthTotalTenants,
+      activeTickets,
+      currentMonthClosedIssues,
+      previousMonthClosedIssues,
+      currentMonthRevenue,
+      previousMonthRevenue,
+    ] = await Promise.all([
+      this.prisma.tenant.count(),
+      this.prisma.tenant.count({
+        where: {
+          createdAt: {
+            lt: currentMonthStart,
+          },
+        },
+      }),
+      this.prisma.supportTicket.count({
+        where: {
+          status: 'OPEN',
+        },
+      }),
+      this.prisma.supportTicket.count({
+        where: {
+          status: 'CLOSED',
+          updatedAt: {
+            gte: currentMonthStart,
+            lt: nextMonthStart,
+          },
+        },
+      }),
+      this.prisma.supportTicket.count({
+        where: {
+          status: 'CLOSED',
+          updatedAt: {
+            gte: previousMonthStart,
+            lt: currentMonthStart,
+          },
+        },
+      }),
+      this.prisma.subscriptionPayment.aggregate({
+        where: {
+          status: 'COMPLETED',
+          completedAt: {
+            gte: currentMonthStart,
+            lt: nextMonthStart,
+          },
+        },
+        _sum: { amount: true },
+      }),
+      this.prisma.subscriptionPayment.aggregate({
+        where: {
+          status: 'COMPLETED',
+          completedAt: {
+            gte: previousMonthStart,
+            lt: currentMonthStart,
+          },
+        },
+        _sum: { amount: true },
+      }),
+    ]);
 
-    const payload = { sub: admin.id, email: admin.email, role: 'admin' };
+    const monthlyRevenue = this.toMoney(currentMonthRevenue._sum.amount ?? 0);
+    const previousMonthRevenueAmount = this.toMoney(
+      previousMonthRevenue._sum.amount ?? 0,
+    );
 
     return {
-      accessToken: await this.jwtService.signAsync(payload),
-      admin: {
-        id: admin.id,
-        email: admin.email,
-        name: admin.name,
-        status: admin.status,
-        createdAt: admin.createdAt,
+      tenants: {
+        total: totalTenants,
+        previousMonthTotal: previousMonthTotalTenants,
+        changePercentage: this.toPercentChange(
+          totalTenants,
+          previousMonthTotalTenants,
+        ),
+      },
+      support: {
+        activeTickets,
+        closedIssues: currentMonthClosedIssues,
+        previousMonthClosedIssues,
+        closedIssuesChangePercentage: this.toPercentChange(
+          currentMonthClosedIssues,
+          previousMonthClosedIssues,
+        ),
+      },
+      revenue: {
+        monthly: monthlyRevenue,
+        previousMonth: previousMonthRevenueAmount,
+        changePercentage: this.toPercentChange(
+          monthlyRevenue,
+          previousMonthRevenueAmount,
+        ),
+      },
+      meta: {
+        comparedMonthStart: previousMonthStart,
+        currentMonthStart,
+        comparedAt: now,
       },
     };
   }
 
-  async createTenant(dto: CreateTenantDto) {
-    return this.prisma.tenant.create({
+  createSubscriptionPrice(adminId: string, dto: CreateSubscriptionPriceDto) {
+    return this.prisma.subscriptionPrice.create({
       data: {
-        name: dto.name,
-        industry: dto.industry ?? 'restaurant',
-        subscriptionFee: dto.subscriptionFee ?? 0,
-        status: 'ACTIVE',
-        lastSync: new Date(),
+        name: this.getSubscriptionPlanLabel(dto.planType),
+        planType: dto.planType,
+        description: dto.description,
+        amount: this.toMoney(dto.amount),
+        currency: (dto.currency ?? 'USD').toUpperCase(),
+        isActive: dto.isActive ?? true,
+        createdById: adminId,
       },
-    });
-  }
-
-  async listTenants(page: number = 1, limit: number = 10) {
-    const [tenants, total] = await Promise.all([
-      this.prisma.tenant.findMany({
-        skip: (page - 1) * limit,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-      }),
-      this.prisma.tenant.count(),
-    ]);
-
-    return { data: tenants, total, page, limit };
-  }
-
-  async createTenantRole(tenantId: string, dto: CreateTenantRoleDto) {
-    await this.ensureTenantExists(tenantId);
-
-    try {
-      return await this.prisma.role.create({
-        data: {
-          name: dto.name,
-          isActive: dto.isActive ?? true,
-          tenantId,
-        },
-      });
-    } catch (error) {
+      select: {
+        id: true,
+        name: true,
+        planType: true,
+        description: true,
+        amount: true,
+        currency: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    }).catch((error) => {
       if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
+        error?.code === 'P2002'
       ) {
-        throw new BadRequestException('Role name already exists for this tenant');
+        throw new BadRequestException(
+          'This subscription plan is already configured',
+        );
       }
 
       throw error;
-    }
+    });
   }
 
-  async listTenantRoles(tenantId: string, dto: ListTenantRolesDto) {
-    await this.ensureTenantExists(tenantId);
-
-    const [roles, total] = await Promise.all([
-      this.prisma.role.findMany({
-        where: { tenantId },
-        skip: (dto.page - 1) * dto.limit,
-        take: dto.limit,
-        orderBy: { createdAt: 'desc' },
-      }),
-      this.prisma.role.count({ where: { tenantId } }),
-    ]);
-
-    return { data: roles, total, page: dto.page, limit: dto.limit };
-  }
-
-  async createTenantUser(tenantId: string, dto: CreateTenantUserDto) {
-    await this.ensureTenantExists(tenantId);
-
-    const [role, existingPinUser] = await Promise.all([
-      this.prisma.role.findFirst({
-        where: { id: dto.roleId, tenantId, isActive: true },
-        select: { id: true },
-      }),
-      this.prisma.user.findFirst({
-        where: { tenantId, pin: dto.pin },
-        select: { id: true },
-      }),
-    ]);
-
-    if (!role) {
-      throw new BadRequestException('Role not found for this tenant or inactive');
-    }
-
-    if (existingPinUser) {
-      throw new BadRequestException('PIN already exists for this tenant');
-    }
-
-    return this.prisma.user.create({
-      data: {
-        name: dto.name,
-        pin: dto.pin,
-        roleId: dto.roleId,
-        tenantId,
-        status: dto.status ?? 'ACTIVE',
-      },
-      include: {
-        role: true,
+  listSubscriptionPrices() {
+    return this.prisma.subscriptionPrice.findMany({
+      orderBy: [
+        { isActive: 'desc' },
+        { createdAt: 'desc' },
+      ],
+      select: {
+        id: true,
+        name: true,
+        planType: true,
+        description: true,
+        amount: true,
+        currency: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
   }
 
-  async listTenantUsers(tenantId: string, dto: ListTenantUsersDto) {
-    await this.ensureTenantExists(tenantId);
+  async updateSubscriptionPrice(
+    _adminId: string,
+    id: string,
+    dto: UpdateSubscriptionPriceDto,
+  ) {
+    const existing = await this.prisma.subscriptionPrice.findUnique({
+      where: { id },
+      select: { id: true },
+    });
 
-    const where = {
-      tenantId,
-      name: dto.search ? { contains: dto.search, mode: 'insensitive' as const } : undefined,
-    };
+    if (!existing) {
+      throw new NotFoundException('Subscription price not found');
+    }
 
-    const [users, total] = await Promise.all([
-      this.prisma.user.findMany({
-        where,
-        skip: (dto.page - 1) * dto.limit,
-        take: dto.limit,
-        include: { role: true },
-        orderBy: { createdAt: 'desc' },
-      }),
-      this.prisma.user.count({ where }),
-    ]);
+    return this.prisma.subscriptionPrice.update({
+      where: { id },
+      data: {
+        ...(dto.planType !== undefined
+          ? {
+              planType: dto.planType,
+              name: this.getSubscriptionPlanLabel(dto.planType),
+            }
+          : {}),
+        ...(dto.description !== undefined ? { description: dto.description } : {}),
+        ...(dto.amount !== undefined ? { amount: this.toMoney(dto.amount) } : {}),
+        ...(dto.currency !== undefined ? { currency: dto.currency.toUpperCase() } : {}),
+        ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        planType: true,
+        description: true,
+        amount: true,
+        currency: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    }).catch((error) => {
+      if (error?.code === 'P2002') {
+        throw new BadRequestException(
+          'This subscription plan is already configured',
+        );
+      }
 
-    return { data: users, total, page: dto.page, limit: dto.limit };
+      throw error;
+    });
   }
 
-  async dashboard(tenantId: string) {
-    const [users, orders, tickets, payments, revenue, syncIssues] = await Promise.all([
-      this.prisma.user.count({ where: { tenantId } }),
-      this.prisma.order.count({ where: { tenantId } }),
-      this.prisma.ticket.count({ where: { tenantId } }),
-      this.prisma.payment.count({ where: { tenantId, status: 'COMPLETED' } }),
-      this.prisma.payment.aggregate({ where: { tenantId, status: 'COMPLETED' }, _sum: { amount: true } }),
-      this.prisma.device.count({ where: { tenantId, isActive: false } }),
-    ]);
+  async deleteSubscriptionPrice(id: string) {
+    const existing = await this.prisma.subscriptionPrice.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Subscription price not found');
+    }
+
+    await this.prisma.subscriptionPrice.delete({
+      where: { id },
+    });
 
     return {
-      counts: { users, orders, tickets, completedPayments: payments },
-      revenue: revenue._sum.amount ?? 0,
-      syncIssues,
+      success: true,
+      id,
     };
   }
 
-  private async ensureTenantExists(tenantId: string) {
+  async createSubscriptionVoucher(
+    adminId: string,
+    tenantId: string,
+    dto: CreateSubscriptionVoucherDto,
+  ) {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
       select: { id: true },
@@ -225,5 +352,124 @@ export class AdminService {
     if (!tenant) {
       throw new NotFoundException('Tenant not found');
     }
+
+    const expiresAt = dto.expiresAt ? new Date(dto.expiresAt) : undefined;
+    if (expiresAt && Number.isNaN(expiresAt.getTime())) {
+      throw new BadRequestException('Invalid voucher expiry date');
+    }
+
+    return this.prisma.subscriptionVoucher.create({
+      data: {
+        tenantId,
+        code: dto.code.trim().toUpperCase(),
+        amountOff: this.toMoney(dto.amountOff),
+        isActive: dto.isActive ?? true,
+        expiresAt,
+        createdById: adminId,
+      },
+      select: {
+        id: true,
+        tenantId: true,
+        code: true,
+        amountOff: true,
+        isActive: true,
+        expiresAt: true,
+        usedAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  listSubscriptionVouchers(tenantId: string) {
+    return this.prisma.subscriptionVoucher.findMany({
+      where: { tenantId },
+      orderBy: [{ isActive: 'desc' }, { createdAt: 'desc' }],
+      select: {
+        id: true,
+        tenantId: true,
+        code: true,
+        amountOff: true,
+        isActive: true,
+        expiresAt: true,
+        usedAt: true,
+        usedByUserId: true,
+        usedInPaymentId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  async updateSubscriptionVoucher(
+    id: string,
+    dto: UpdateSubscriptionVoucherDto,
+  ) {
+    const existing = await this.prisma.subscriptionVoucher.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Subscription voucher not found');
+    }
+
+    const expiresAt = dto.expiresAt !== undefined
+      ? dto.expiresAt
+        ? new Date(dto.expiresAt)
+        : null
+      : undefined;
+
+    if (
+      expiresAt instanceof Date &&
+      Number.isNaN(expiresAt.getTime())
+    ) {
+      throw new BadRequestException('Invalid voucher expiry date');
+    }
+
+    return this.prisma.subscriptionVoucher.update({
+      where: { id },
+      data: {
+        ...(dto.code !== undefined ? { code: dto.code.trim().toUpperCase() } : {}),
+        ...(dto.amountOff !== undefined
+          ? { amountOff: this.toMoney(dto.amountOff) }
+          : {}),
+        ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+        ...(expiresAt !== undefined ? { expiresAt } : {}),
+      },
+      select: {
+        id: true,
+        tenantId: true,
+        code: true,
+        amountOff: true,
+        isActive: true,
+        expiresAt: true,
+        usedAt: true,
+        usedByUserId: true,
+        usedInPaymentId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  async deleteSubscriptionVoucher(id: string) {
+    const existing = await this.prisma.subscriptionVoucher.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Subscription voucher not found');
+    }
+
+    await this.prisma.subscriptionVoucher.delete({
+      where: { id },
+    });
+
+    return {
+      success: true,
+      id,
+    };
   }
 }

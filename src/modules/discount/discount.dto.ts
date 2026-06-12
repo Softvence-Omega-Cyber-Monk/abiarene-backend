@@ -1,29 +1,50 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsIn, IsNumber, IsOptional, IsString } from 'class-validator';
-import { PaginationDto } from '../../common/dto/pagination.dto.js';
+import { IsBoolean, IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class CreateDiscountDto {
-  @ApiProperty({ description: 'Order ID' })
+  @ApiProperty({ description: 'Discount name', example: 'Weekend Offer' })
   @IsString()
-  orderId!: string;
+  name!: string;
 
-  @ApiProperty({ description: 'Requested discount amount', example: 5.5 })
+  @ApiProperty({ description: 'Minimum order price required for this discount', example: 100 })
   @Type(() => Number)
   @IsNumber()
-  amount!: number;
+  minimumPrice!: number;
 
-  @ApiPropertyOptional({ description: 'Reason for discount request' })
+  @ApiProperty({ description: 'Discount percentage off', example: 10 })
+  @Type(() => Number)
+  @IsNumber()
+  offPrice!: number;
+
+  @ApiPropertyOptional({ description: 'Whether this discount is active', example: true })
   @IsOptional()
-  @IsString()
-  reason?: string;
+  @Type(() => Boolean)
+  @IsBoolean()
+  isActive?: boolean;
 }
 
-export class UpdateDiscountDto extends PartialType(CreateDiscountDto) {
-  @ApiPropertyOptional({ enum: ['PENDING', 'APPROVED', 'REJECTED'] })
-  @IsOptional()
-  @IsIn(['PENDING', 'APPROVED', 'REJECTED'])
-  status?: 'PENDING' | 'APPROVED' | 'REJECTED';
-}
+export class UpdateDiscountDto extends PartialType(CreateDiscountDto) {}
 
-export class ListDiscountDto extends PaginationDto {}
+export class ListDiscountDto {
+  @ApiPropertyOptional({ default: 1, minimum: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page = 1;
+
+  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit = 20;
+
+  @ApiPropertyOptional({ description: 'Filter discounts by active state', example: true })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  isActive?: boolean;
+}
