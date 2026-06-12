@@ -45,7 +45,15 @@ export class AuthService {
   async getTenants() {
     return this.prisma.tenant.findMany({
       where: { status: 'ACTIVE' },
-      select: { id: true, name: true, status: true, createdAt: true },
+      select: {
+        id: true,
+        name: true,
+        industry: true,
+        countryCode: true,
+        currencyCode: true,
+        status: true,
+        createdAt: true,
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -85,7 +93,18 @@ export class AuthService {
 
     const user = await this.prisma.user.findFirst({
       where: { pin: dto.pin, email: dto.email, status: 'ACTIVE' },
-      include: { role: true },
+      include: {
+        role: true,
+        tenant: {
+          select: {
+            id: true,
+            name: true,
+            industry: true,
+            countryCode: true,
+            currencyCode: true,
+          },
+        },
+      },
     });
 
     const role = user?.role?.isActive ? user.role.name : user?.pendingRole;
@@ -105,6 +124,7 @@ export class AuthService {
     return {
       accessToken: await this.jwtService.signAsync(payload),
       user: payload,
+      tenant: user.tenant,
     };
   }
 
