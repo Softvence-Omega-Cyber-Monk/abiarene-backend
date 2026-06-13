@@ -401,6 +401,31 @@ export class AdminService {
     });
   }
 
+  listAllSubscriptionVouchers() {
+    return this.prisma.subscriptionVoucher.findMany({
+      orderBy: [{ isActive: 'desc' }, { createdAt: 'desc' }],
+      select: {
+        id: true,
+        tenantId: true,
+        code: true,
+        amountOff: true,
+        isActive: true,
+        expiresAt: true,
+        usedAt: true,
+        usedByUserId: true,
+        usedInPaymentId: true,
+        createdAt: true,
+        updatedAt: true,
+        tenant: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+  }
+
   async updateSubscriptionVoucher(
     id: string,
     dto: UpdateSubscriptionVoucherDto,

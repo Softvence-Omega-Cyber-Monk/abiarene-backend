@@ -132,6 +132,18 @@ export class AdminController {
     return this.adminService.listSubscriptionVouchers(tenantId);
   }
 
+  @Get('subscription-vouchers')
+  @Roles('admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List subscription vouchers across all tenants' })
+  @ApiResponse({
+    status: 200,
+    description: 'Subscription vouchers across all tenants retrieved',
+  })
+  listAllSubscriptionVouchers() {
+    return this.adminService.listAllSubscriptionVouchers();
+  }
+
   @Patch('subscription-vouchers/:id')
   @Roles('admin')
   @ApiBearerAuth()
