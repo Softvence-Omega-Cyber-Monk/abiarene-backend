@@ -62,4 +62,12 @@ export class ExchangeRateService {
 
     return payload.rate;
   }
+
+  async tryGetRate(baseCurrency: string, quoteCurrency: string) {
+    try {
+      return await this.getRate(baseCurrency, quoteCurrency);
+    } catch {
+      return null;
+    }
+  }
 }

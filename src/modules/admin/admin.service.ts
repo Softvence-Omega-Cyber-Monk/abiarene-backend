@@ -34,6 +34,52 @@ export class AdminService {
     return normalizeCurrencyCode(value);
   }
 
+  private async convertAmountForDisplay(
+    amount: number,
+    sourceCurrency: string,
+    requestedCurrency?: string | null,
+  ) {
+    const originalCurrency = this.normalizeCurrencyCode(sourceCurrency) ?? 'USD';
+    const targetCurrency = this.normalizeCurrencyCode(requestedCurrency);
+
+    if (!targetCurrency || targetCurrency === originalCurrency) {
+      return {
+        amount: roundAmountForCurrency(amount, originalCurrency),
+        currency: originalCurrency,
+        originalAmount: amount,
+        originalCurrency,
+        exchangeRate: 1,
+        conversionUnavailable: false,
+      };
+    }
+
+    const exchangeRate = await this.exchangeRates.tryGetRate(
+      originalCurrency,
+      targetCurrency,
+    );
+
+    if (exchangeRate === null) {
+      return {
+        amount: roundAmountForCurrency(amount, originalCurrency),
+        currency: originalCurrency,
+        originalAmount: amount,
+        originalCurrency,
+        exchangeRate: null,
+        conversionUnavailable: true,
+        requestedCurrency: targetCurrency,
+      };
+    }
+
+    return {
+      amount: roundAmountForCurrency(amount * exchangeRate, targetCurrency),
+      currency: targetCurrency,
+      originalAmount: amount,
+      originalCurrency,
+      exchangeRate,
+      conversionUnavailable: false,
+    };
+  }
+
   private toPercentChange(current: number, previous: number) {
     if (previous === 0) {
       return current === 0 ? 0 : 100;
@@ -193,14 +239,9 @@ export class AdminService {
 
     const currentMonthRevenueBreakdown = await Promise.all(
       currentMonthRevenuePayments.map(async (payment) => {
-        const sourceCurrency =
-          this.normalizeCurrencyCode(payment.currency) ?? 'USD';
-        const exchangeRate =
-          sourceCurrency === targetCurrency
-            ? 1
-            : await this.exchangeRates.getRate(sourceCurrency, targetCurrency);
-        return roundAmountForCurrency(
-          payment.amount * exchangeRate,
+        return this.convertAmountForDisplay(
+          payment.amount,
+          payment.currency,
           targetCurrency,
         );
       }),
@@ -208,24 +249,37 @@ export class AdminService {
 
     const previousMonthRevenueBreakdown = await Promise.all(
       previousMonthRevenuePayments.map(async (payment) => {
-        const sourceCurrency =
-          this.normalizeCurrencyCode(payment.currency) ?? 'USD';
-        const exchangeRate =
-          sourceCurrency === targetCurrency
-            ? 1
-            : await this.exchangeRates.getRate(sourceCurrency, targetCurrency);
-        return roundAmountForCurrency(
-          payment.amount * exchangeRate,
+        return this.convertAmountForDisplay(
+          payment.amount,
+          payment.currency,
           targetCurrency,
         );
       }),
     );
 
     const monthlyRevenue = this.toMoney(
-      currentMonthRevenueBreakdown.reduce((sum, amount) => sum + amount, 0),
+      currentMonthRevenueBreakdown.reduce((sum, item) => {
+        if (item.conversionUnavailable) {
+          return sum;
+        }
+
+        return sum + item.amount;
+      }, 0),
     );
     const previousMonthRevenueAmount = this.toMoney(
-      previousMonthRevenueBreakdown.reduce((sum, amount) => sum + amount, 0),
+      previousMonthRevenueBreakdown.reduce((sum, item) => {
+        if (item.conversionUnavailable) {
+          return sum;
+        }
+
+        return sum + item.amount;
+      }, 0),
+    );
+    const currentSkippedRevenuePayments = currentMonthRevenueBreakdown.filter(
+      (item) => item.conversionUnavailable,
+    );
+    const previousSkippedRevenuePayments = previousMonthRevenueBreakdown.filter(
+      (item) => item.conversionUnavailable,
     );
 
     return {
@@ -253,9 +307,24 @@ export class AdminService {
           monthlyRevenue,
           previousMonthRevenueAmount,
         ),
+        convertedPayments: {
+          currentMonth:
+            currentMonthRevenueBreakdown.length -
+            currentSkippedRevenuePayments.length,
+          previousMonth:
+            previousMonthRevenueBreakdown.length -
+            previousSkippedRevenuePayments.length,
+        },
+        skippedPayments: {
+          currentMonth: currentSkippedRevenuePayments.length,
+          previousMonth: previousSkippedRevenuePayments.length,
+        },
       },
       meta: {
         currency: targetCurrency,
+        conversionUnavailable:
+          currentSkippedRevenuePayments.length > 0 ||
+          previousSkippedRevenuePayments.length > 0,
         comparedMonthStart: previousMonthStart,
         currentMonthStart,
         comparedAt: now,
@@ -326,31 +395,27 @@ export class AdminService {
         originalAmount: price.amount,
         originalCurrency: price.currency,
         exchangeRate: 1,
+        conversionUnavailable: false,
       }));
     }
 
     return Promise.all(
       prices.map(async (price) => {
-        const sourceCurrency =
-          this.normalizeCurrencyCode(price.currency) ?? 'USD';
-        const exchangeRate =
-          sourceCurrency === normalizedDisplayCurrency
-            ? 1
-            : await this.exchangeRates.getRate(
-                sourceCurrency,
-                normalizedDisplayCurrency,
-              );
+        const converted = await this.convertAmountForDisplay(
+          price.amount,
+          price.currency,
+          normalizedDisplayCurrency,
+        );
 
         return {
           ...price,
-          amount: roundAmountForCurrency(
-            price.amount * exchangeRate,
-            normalizedDisplayCurrency,
-          ),
-          currency: normalizedDisplayCurrency,
-          originalAmount: price.amount,
-          originalCurrency: sourceCurrency,
-          exchangeRate,
+          amount: converted.amount,
+          currency: converted.currency,
+          originalAmount: converted.originalAmount,
+          originalCurrency: converted.originalCurrency,
+          exchangeRate: converted.exchangeRate,
+          conversionUnavailable: converted.conversionUnavailable,
+          requestedCurrency: converted.requestedCurrency,
         };
       }),
     );
