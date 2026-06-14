@@ -15,8 +15,22 @@ export class TenantPortalService {
     private readonly subscriptionService: TenantSubscriptionService,
   ) {}
 
-  read(tenantId: string) {
-    return this.tenantService.read(tenantId, tenantId);
+  async read(tenantId: string, currency?: string) {
+    const [tenant, subscription] = await Promise.all([
+      this.tenantService.read(tenantId, tenantId),
+      this.subscriptionService.getSubscriptionDetails(tenantId, currency),
+    ]);
+
+    if (!tenant) {
+      return tenant;
+    }
+
+    return {
+      ...tenant,
+      displaySubscriptionFee: subscription.subscription.fee,
+      displaySubscriptionFeeCurrency: subscription.subscription.feeCurrency,
+      subscriptionExchangeValue: subscription.subscription.exchangeValue,
+    };
   }
 
   createForSupervisor(userId: string, dto: CreateTenantDto) {
@@ -43,8 +57,8 @@ export class TenantPortalService {
     return this.tenantService.update(tenantId, tenantId, dto);
   }
 
-  getSubscription(tenantId: string) {
-    return this.subscriptionService.getSubscriptionDetails(tenantId);
+  getSubscription(tenantId: string, currency?: string) {
+    return this.subscriptionService.getSubscriptionDetails(tenantId, currency);
   }
 
   listSubscriptionVouchers(tenantId: string) {

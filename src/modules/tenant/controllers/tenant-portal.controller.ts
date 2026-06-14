@@ -85,9 +85,20 @@ export class TenantPortalController {
   @Get('me')
   @Roles('manager', 'supervisor', 'server', 'kitchen', 'cashier')
   @ApiOperation({ summary: 'Get current tenant' })
+  @ApiQuery({
+    name: 'currency',
+    required: false,
+    type: String,
+    example: 'EUR',
+    description:
+      'Optional display currency for subscription fee preview under the tenant response',
+  })
   @ApiResponse({ status: 200, description: 'Current tenant retrieved' })
-  read(@CurrentUser() user: AuthUser | undefined) {
-    return this.service.read(this.tenantId(user));
+  read(
+    @CurrentUser() user: AuthUser | undefined,
+    @Query('currency') currency?: string,
+  ) {
+    return this.service.read(this.tenantId(user), currency);
   }
 
   @Get('overview')
@@ -163,12 +174,23 @@ export class TenantPortalController {
   @ApiOperation({
     summary: 'Get current tenant subscription status and payment options',
   })
+  @ApiQuery({
+    name: 'currency',
+    required: false,
+    type: String,
+    example: 'EUR',
+    description:
+      'Optional display currency for the tenant subscription fee preview',
+  })
   @ApiResponse({
     status: 200,
     description: 'Current tenant subscription details retrieved',
   })
-  getSubscription(@CurrentUser() user: AuthUser | undefined) {
-    return this.service.getSubscription(this.tenantId(user));
+  getSubscription(
+    @CurrentUser() user: AuthUser | undefined,
+    @Query('currency') currency?: string,
+  ) {
+    return this.service.getSubscription(this.tenantId(user), currency);
   }
 
   @Get('subscription/vouchers')

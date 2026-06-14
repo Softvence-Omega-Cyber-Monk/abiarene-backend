@@ -209,7 +209,7 @@ export class TenantSubscriptionService {
     );
   }
 
-  async getSubscriptionDetails(tenantId: string) {
+  async getSubscriptionDetails(tenantId: string, displayCurrency?: string) {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
       select: {
@@ -283,12 +283,37 @@ export class TenantSubscriptionService {
       },
     });
 
+    const feeCurrency =
+      this.normalizeCurrencyCode(tenant.subscriptionCurrencyCode) ?? 'USD';
+    const preferredPaymentCurrency =
+      this.normalizeCurrencyCode(displayCurrency) ??
+      this.normalizeCurrencyCode(tenant.currencyCode) ??
+      feeCurrency;
+    const feeExchangeRate =
+      feeCurrency === preferredPaymentCurrency
+        ? 1
+        : await this.exchangeRates.getRate(feeCurrency, preferredPaymentCurrency);
+    const displayFee = roundAmountForCurrency(
+      tenant.subscriptionFee * feeExchangeRate,
+      preferredPaymentCurrency,
+    );
+
     return {
       tenant,
       subscription: {
-        fee: tenant.subscriptionFee,
-        feeCurrency: tenant.subscriptionCurrencyCode,
-        preferredPaymentCurrency: tenant.currencyCode,
+        fee: displayFee,
+        feeCurrency: preferredPaymentCurrency,
+        originalFee: tenant.subscriptionFee,
+        originalFeeCurrency: feeCurrency,
+        preferredPaymentCurrency,
+        exchangeRate: feeExchangeRate,
+        exchangeValue: {
+          amount: displayFee,
+          currency: preferredPaymentCurrency,
+          baseAmount: tenant.subscriptionFee,
+          baseCurrency: feeCurrency,
+          rate: feeExchangeRate,
+        },
         status:
           isExpired && tenant.subscriptionStatus === 'ACTIVE'
             ? 'EXPIRED'
