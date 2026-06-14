@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { RoleName } from '../../common/constants/role-name.js';
+import { roundAmountForCurrency } from '../payments/currency.utils.js';
+import { ExchangeRateService } from '../payments/exchange-rate.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import {
   AdminSignupDto,
@@ -20,10 +22,15 @@ export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly exchangeRates: ExchangeRateService,
   ) {}
 
   private toMoney(value: number) {
     return Math.round(value * 100) / 100;
+  }
+
+  private normalizeCurrencyCode(value?: string | null) {
+    return value?.trim().toUpperCase() ?? null;
   }
 
   private toPercentChange(current: number, previous: number) {
@@ -249,8 +256,11 @@ export class AdminService {
     });
   }
 
-  listSubscriptionPrices() {
-    return this.prisma.subscriptionPrice.findMany({
+  async listSubscriptionPrices(displayCurrency?: string) {
+    const normalizedDisplayCurrency =
+      this.normalizeCurrencyCode(displayCurrency);
+
+    const prices = await this.prisma.subscriptionPrice.findMany({
       orderBy: [
         { isActive: 'desc' },
         { createdAt: 'desc' },
@@ -267,6 +277,41 @@ export class AdminService {
         updatedAt: true,
       },
     });
+
+    if (!normalizedDisplayCurrency) {
+      return prices.map((price) => ({
+        ...price,
+        originalAmount: price.amount,
+        originalCurrency: price.currency,
+        exchangeRate: 1,
+      }));
+    }
+
+    return Promise.all(
+      prices.map(async (price) => {
+        const sourceCurrency =
+          this.normalizeCurrencyCode(price.currency) ?? 'USD';
+        const exchangeRate =
+          sourceCurrency === normalizedDisplayCurrency
+            ? 1
+            : await this.exchangeRates.getRate(
+                sourceCurrency,
+                normalizedDisplayCurrency,
+              );
+
+        return {
+          ...price,
+          amount: roundAmountForCurrency(
+            price.amount * exchangeRate,
+            normalizedDisplayCurrency,
+          ),
+          currency: normalizedDisplayCurrency,
+          originalAmount: price.amount,
+          originalCurrency: sourceCurrency,
+          exchangeRate,
+        };
+      }),
+    );
   }
 
   async updateSubscriptionPrice(

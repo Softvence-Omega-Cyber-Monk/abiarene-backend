@@ -6,11 +6,13 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UnauthorizedException,
 } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
+  ApiQuery,
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
@@ -77,9 +79,16 @@ export class AdminController {
   @Get('subscription-prices')
   @Public()
   @ApiOperation({ summary: 'Get all subscription prices' })
+  @ApiQuery({
+    name: 'currency',
+    required: false,
+    type: String,
+    example: 'EUR',
+    description: 'Optional display currency for converted subscription prices',
+  })
   @ApiResponse({ status: 200, description: 'Subscription prices retrieved' })
-  listSubscriptionPrices() {
-    return this.adminService.listSubscriptionPrices();
+  listSubscriptionPrices(@Query('currency') currency?: string) {
+    return this.adminService.listSubscriptionPrices(currency);
   }
 
   @Patch('subscription-prices/:id')
