@@ -37,10 +37,19 @@ export class AdminTenantController {
   @ApiResponse({ status: 403, description: 'This route is for admin only' })
   @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
   @ApiQuery({ name: 'limit', required: false, type: String, example: '20' })
+  @ApiQuery({
+    name: 'currency',
+    required: false,
+    type: String,
+    example: 'EUR',
+    description:
+      'Optional display currency for converted subscription fee preview in each tenant item',
+  })
   listAll(
     @CurrentUser() user: AuthUser | undefined,
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '20',
+    @Query('currency') currency?: string,
   ) {
     if (user?.role?.toUpperCase() !== RoleName.ADMIN) {
       throw new ForbiddenException('This route is for admin only');
@@ -49,7 +58,7 @@ export class AdminTenantController {
     return this.service.listAll({
       page: parseInt(page, 10),
       limit: parseInt(limit, 10),
-    } as ListTenantDto);
+    } as ListTenantDto, currency);
   }
 
   @Patch(':tenantId/roles')

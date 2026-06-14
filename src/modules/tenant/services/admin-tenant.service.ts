@@ -11,8 +11,8 @@ import { TenantService } from '../tenant.service.js';
 export class AdminTenantService {
   constructor(private readonly tenantService: TenantService) {}
 
-  listAll(dto: ListTenantDto) {
-    return this.tenantService.listAll(dto);
+  listAll(dto: ListTenantDto, currency?: string) {
+    return this.tenantService.listAll(dto, currency);
   }
 
   listRoles(tenantId: string, dto: ListTenantRolesDto) {

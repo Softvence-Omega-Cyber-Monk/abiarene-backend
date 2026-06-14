@@ -5,6 +5,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { roundAmountForCurrency } from '../payments/currency.utils.js';
+import { ExchangeRateService } from '../payments/exchange-rate.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import {
   CreateTenantDto,
@@ -20,7 +22,10 @@ const DEFAULT_TENANT_ROLE = RoleName.SUPERVISOR;
 
 @Injectable()
 export class TenantService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly exchangeRates: ExchangeRateService,
+  ) {}
 
   private normalizeCountryCode(value: string) {
     return value.trim().toUpperCase();
@@ -40,6 +45,42 @@ export class TenantService {
     }
 
     return this.toMoney(((current - previous) / previous) * 100);
+  }
+
+  private async withSubscriptionDisplayValue<
+    T extends {
+      subscriptionFee: number;
+      subscriptionCurrencyCode: string;
+      currencyCode: string;
+    },
+  >(tenant: T, displayCurrency?: string) {
+    const baseCurrency =
+      this.normalizeCurrencyCode(tenant.subscriptionCurrencyCode) ?? 'USD';
+    const targetCurrency =
+      displayCurrency?.trim()
+        ? this.normalizeCurrencyCode(displayCurrency)
+        : this.normalizeCurrencyCode(tenant.currencyCode) ?? baseCurrency;
+    const exchangeRate =
+      baseCurrency === targetCurrency
+        ? 1
+        : await this.exchangeRates.getRate(baseCurrency, targetCurrency);
+    const displaySubscriptionFee = roundAmountForCurrency(
+      tenant.subscriptionFee * exchangeRate,
+      targetCurrency,
+    );
+
+    return {
+      ...tenant,
+      displaySubscriptionFee,
+      displaySubscriptionFeeCurrency: targetCurrency,
+      subscriptionExchangeValue: {
+        amount: displaySubscriptionFee,
+        currency: targetCurrency,
+        baseAmount: tenant.subscriptionFee,
+        baseCurrency,
+        rate: exchangeRate,
+      },
+    };
   }
 
   createForSupervisor(userId: string, dto: CreateTenantDto) {
@@ -177,7 +218,7 @@ export class TenantService {
     );
   }
 
-  async listAll(dto: ListTenantDto) {
+  async listAll(dto: ListTenantDto, displayCurrency?: string) {
     const [tenants, total] = await Promise.all([
       this.prisma.tenant.findMany({
         skip: (dto.page - 1) * dto.limit,
@@ -187,7 +228,18 @@ export class TenantService {
       this.prisma.tenant.count(),
     ]);
 
-    return buildPaginatedResponse(tenants, dto.page, dto.limit, total);
+    const tenantsWithDisplayValues = await Promise.all(
+      tenants.map((tenant) =>
+        this.withSubscriptionDisplayValue(tenant, displayCurrency),
+      ),
+    );
+
+    return buildPaginatedResponse(
+      tenantsWithDisplayValues,
+      dto.page,
+      dto.limit,
+      total,
+    );
   }
 
   async list(tenantId: string, dto: ListTenantDto) {
