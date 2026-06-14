@@ -6,6 +6,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { RoleName } from '../../common/constants/role-name.js';
 import { roundAmountForCurrency } from '../payments/currency.utils.js';
+import { normalizeCurrencyCode } from '../payments/currency-code.utils.js';
 import { ExchangeRateService } from '../payments/exchange-rate.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import {
@@ -30,7 +31,7 @@ export class AdminService {
   }
 
   private normalizeCurrencyCode(value?: string | null) {
-    return value?.trim().toUpperCase() ?? null;
+    return normalizeCurrencyCode(value);
   }
 
   private toPercentChange(current: number, previous: number) {
@@ -269,7 +270,7 @@ export class AdminService {
         planType: dto.planType,
         description: dto.description,
         amount: this.toMoney(dto.amount),
-        currency: (dto.currency ?? 'USD').toUpperCase(),
+        currency: this.normalizeCurrencyCode(dto.currency) ?? 'USD',
         isActive: dto.isActive ?? true,
         createdById: adminId,
       },
@@ -380,7 +381,9 @@ export class AdminService {
           : {}),
         ...(dto.description !== undefined ? { description: dto.description } : {}),
         ...(dto.amount !== undefined ? { amount: this.toMoney(dto.amount) } : {}),
-        ...(dto.currency !== undefined ? { currency: dto.currency.toUpperCase() } : {}),
+        ...(dto.currency !== undefined
+          ? { currency: this.normalizeCurrencyCode(dto.currency) ?? 'USD' }
+          : {}),
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
       },
       select: {

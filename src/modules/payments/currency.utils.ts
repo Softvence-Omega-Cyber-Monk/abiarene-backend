@@ -1,3 +1,5 @@
+import { normalizeCurrencyCode } from './currency-code.utils.js';
+
 const ZERO_DECIMAL_CURRENCIES = new Set([
   'BIF',
   'CLP',
@@ -22,7 +24,7 @@ const STRIPE_SPECIAL_MINOR_UNIT_MULTIPLIERS = new Map<string, number>([
 ]);
 
 export function getCurrencyFractionDigits(currency?: string | null) {
-  const normalizedCurrency = currency?.trim().toUpperCase();
+  const normalizedCurrency = normalizeCurrencyCode(currency);
   if (!normalizedCurrency) {
     return 2;
   }
@@ -51,7 +53,7 @@ export function toMinorUnits(
   currency?: string | null,
   provider?: 'stripe' | 'paystack',
 ) {
-  const normalizedCurrency = currency?.trim().toUpperCase() ?? null;
+  const normalizedCurrency = normalizeCurrencyCode(currency);
 
   if (
     provider === 'stripe' &&
