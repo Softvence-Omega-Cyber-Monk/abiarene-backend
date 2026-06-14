@@ -110,7 +110,7 @@ export class AdminService {
     });
   }
 
-  async dashboard() {
+  async dashboard(displayCurrency?: string) {
     const now = new Date();
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
@@ -126,8 +126,8 @@ export class AdminService {
       activeTickets,
       currentMonthClosedIssues,
       previousMonthClosedIssues,
-      currentMonthRevenue,
-      previousMonthRevenue,
+      currentMonthRevenuePayments,
+      previousMonthRevenuePayments,
     ] = await Promise.all([
       this.prisma.tenant.count(),
       this.prisma.tenant.count({
@@ -160,7 +160,7 @@ export class AdminService {
           },
         },
       }),
-      this.prisma.subscriptionPayment.aggregate({
+      this.prisma.subscriptionPayment.findMany({
         where: {
           status: 'COMPLETED',
           completedAt: {
@@ -168,9 +168,12 @@ export class AdminService {
             lt: nextMonthStart,
           },
         },
-        _sum: { amount: true },
+        select: {
+          amount: true,
+          currency: true,
+        },
       }),
-      this.prisma.subscriptionPayment.aggregate({
+      this.prisma.subscriptionPayment.findMany({
         where: {
           status: 'COMPLETED',
           completedAt: {
@@ -178,13 +181,50 @@ export class AdminService {
             lt: currentMonthStart,
           },
         },
-        _sum: { amount: true },
+        select: {
+          amount: true,
+          currency: true,
+        },
       }),
     ]);
 
-    const monthlyRevenue = this.toMoney(currentMonthRevenue._sum.amount ?? 0);
+    const targetCurrency = this.normalizeCurrencyCode(displayCurrency) ?? 'USD';
+
+    const currentMonthRevenueBreakdown = await Promise.all(
+      currentMonthRevenuePayments.map(async (payment) => {
+        const sourceCurrency =
+          this.normalizeCurrencyCode(payment.currency) ?? 'USD';
+        const exchangeRate =
+          sourceCurrency === targetCurrency
+            ? 1
+            : await this.exchangeRates.getRate(sourceCurrency, targetCurrency);
+        return roundAmountForCurrency(
+          payment.amount * exchangeRate,
+          targetCurrency,
+        );
+      }),
+    );
+
+    const previousMonthRevenueBreakdown = await Promise.all(
+      previousMonthRevenuePayments.map(async (payment) => {
+        const sourceCurrency =
+          this.normalizeCurrencyCode(payment.currency) ?? 'USD';
+        const exchangeRate =
+          sourceCurrency === targetCurrency
+            ? 1
+            : await this.exchangeRates.getRate(sourceCurrency, targetCurrency);
+        return roundAmountForCurrency(
+          payment.amount * exchangeRate,
+          targetCurrency,
+        );
+      }),
+    );
+
+    const monthlyRevenue = this.toMoney(
+      currentMonthRevenueBreakdown.reduce((sum, amount) => sum + amount, 0),
+    );
     const previousMonthRevenueAmount = this.toMoney(
-      previousMonthRevenue._sum.amount ?? 0,
+      previousMonthRevenueBreakdown.reduce((sum, amount) => sum + amount, 0),
     );
 
     return {
@@ -214,6 +254,7 @@ export class AdminService {
         ),
       },
       meta: {
+        currency: targetCurrency,
         comparedMonthStart: previousMonthStart,
         currentMonthStart,
         comparedAt: now,

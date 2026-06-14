@@ -47,10 +47,20 @@ export class AdminController {
   @Roles('admin')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get admin dashboard' })
+  @ApiQuery({
+    name: 'currency',
+    required: false,
+    type: String,
+    example: 'EUR',
+    description: 'Optional display currency for dashboard revenue values',
+  })
   @ApiResponse({ status: 200, description: 'Dashboard data' })
-  dashboard(@CurrentUser() user: AuthUser | undefined) {
+  dashboard(
+    @CurrentUser() user: AuthUser | undefined,
+    @Query('currency') currency?: string,
+  ) {
     if (!user?.sub) throw new UnauthorizedException('Missing admin context');
-    return this.adminService.dashboard();
+    return this.adminService.dashboard(currency);
   }
 
   @Get('me')
