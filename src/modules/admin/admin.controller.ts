@@ -6,11 +6,13 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UnauthorizedException,
 } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
+  ApiQuery,
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
@@ -45,10 +47,20 @@ export class AdminController {
   @Roles('admin')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get admin dashboard' })
+  @ApiQuery({
+    name: 'currency',
+    required: false,
+    type: String,
+    example: 'EUR',
+    description: 'Optional display currency for dashboard revenue values',
+  })
   @ApiResponse({ status: 200, description: 'Dashboard data' })
-  dashboard(@CurrentUser() user: AuthUser | undefined) {
+  dashboard(
+    @CurrentUser() user: AuthUser | undefined,
+    @Query('currency') currency?: string,
+  ) {
     if (!user?.sub) throw new UnauthorizedException('Missing admin context');
-    return this.adminService.dashboard();
+    return this.adminService.dashboard(currency);
   }
 
   @Get('me')
@@ -77,9 +89,16 @@ export class AdminController {
   @Get('subscription-prices')
   @Public()
   @ApiOperation({ summary: 'Get all subscription prices' })
+  @ApiQuery({
+    name: 'currency',
+    required: false,
+    type: String,
+    example: 'EUR',
+    description: 'Optional display currency for converted subscription prices',
+  })
   @ApiResponse({ status: 200, description: 'Subscription prices retrieved' })
-  listSubscriptionPrices() {
-    return this.adminService.listSubscriptionPrices();
+  listSubscriptionPrices(@Query('currency') currency?: string) {
+    return this.adminService.listSubscriptionPrices(currency);
   }
 
   @Patch('subscription-prices/:id')
@@ -130,6 +149,18 @@ export class AdminController {
   @ApiResponse({ status: 200, description: 'Subscription vouchers retrieved' })
   listSubscriptionVouchers(@Param('tenantId') tenantId: string) {
     return this.adminService.listSubscriptionVouchers(tenantId);
+  }
+
+  @Get('subscription-vouchers')
+  @Roles('admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List subscription vouchers across all tenants' })
+  @ApiResponse({
+    status: 200,
+    description: 'Subscription vouchers across all tenants retrieved',
+  })
+  listAllSubscriptionVouchers() {
+    return this.adminService.listAllSubscriptionVouchers();
   }
 
   @Patch('subscription-vouchers/:id')

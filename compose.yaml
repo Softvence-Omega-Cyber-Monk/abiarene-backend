@@ -1,0 +1,16 @@
+services:
+  backend:
+    container_name: abiarene-backend
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: abiarene-backend:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      RUN_PRISMA_MIGRATIONS: "true"
+    ports:
+      - "3000:3000"
