@@ -57,16 +57,17 @@ export class TenantService {
   >(tenant: T, displayCurrency?: string) {
     const baseCurrency =
       this.normalizeCurrencyCode(tenant.subscriptionCurrencyCode) ?? 'USD';
-    const targetCurrency =
+    const requestedCurrency =
       displayCurrency?.trim()
         ? this.normalizeCurrencyCode(displayCurrency)
         : this.normalizeCurrencyCode(tenant.currencyCode) ?? baseCurrency;
     const exchangeRate =
-      baseCurrency === targetCurrency
+      baseCurrency === requestedCurrency
         ? 1
-        : await this.exchangeRates.getRate(baseCurrency, targetCurrency);
+        : await this.exchangeRates.tryGetRate(baseCurrency, requestedCurrency);
+    const targetCurrency = exchangeRate === null ? baseCurrency : requestedCurrency;
     const displaySubscriptionFee = roundAmountForCurrency(
-      tenant.subscriptionFee * exchangeRate,
+      tenant.subscriptionFee * (exchangeRate ?? 1),
       targetCurrency,
     );
 
@@ -79,7 +80,12 @@ export class TenantService {
         currency: targetCurrency,
         baseAmount: tenant.subscriptionFee,
         baseCurrency,
-        rate: exchangeRate,
+        rate: exchangeRate ?? 1,
+        requestedCurrency:
+          exchangeRate === null && requestedCurrency !== baseCurrency
+            ? requestedCurrency
+            : undefined,
+        conversionUnavailable: exchangeRate === null,
       },
     };
   }

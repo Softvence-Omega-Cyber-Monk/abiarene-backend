@@ -286,16 +286,21 @@ export class TenantSubscriptionService {
 
     const feeCurrency =
       this.normalizeCurrencyCode(tenant.subscriptionCurrencyCode) ?? 'USD';
-    const preferredPaymentCurrency =
+    const requestedDisplayCurrency =
       this.normalizeCurrencyCode(displayCurrency) ??
       this.normalizeCurrencyCode(tenant.currencyCode) ??
       feeCurrency;
     const feeExchangeRate =
-      feeCurrency === preferredPaymentCurrency
+      feeCurrency === requestedDisplayCurrency
         ? 1
-        : await this.exchangeRates.getRate(feeCurrency, preferredPaymentCurrency);
+        : await this.exchangeRates.tryGetRate(
+            feeCurrency,
+            requestedDisplayCurrency,
+          );
+    const preferredPaymentCurrency =
+      feeExchangeRate === null ? feeCurrency : requestedDisplayCurrency;
     const displayFee = roundAmountForCurrency(
-      tenant.subscriptionFee * feeExchangeRate,
+      tenant.subscriptionFee * (feeExchangeRate ?? 1),
       preferredPaymentCurrency,
     );
 
@@ -307,13 +312,19 @@ export class TenantSubscriptionService {
         originalFee: tenant.subscriptionFee,
         originalFeeCurrency: feeCurrency,
         preferredPaymentCurrency,
-        exchangeRate: feeExchangeRate,
+        exchangeRate: feeExchangeRate ?? 1,
         exchangeValue: {
           amount: displayFee,
           currency: preferredPaymentCurrency,
           baseAmount: tenant.subscriptionFee,
           baseCurrency: feeCurrency,
-          rate: feeExchangeRate,
+          rate: feeExchangeRate ?? 1,
+          requestedCurrency:
+            feeExchangeRate === null &&
+            requestedDisplayCurrency !== feeCurrency
+              ? requestedDisplayCurrency
+              : undefined,
+          conversionUnavailable: feeExchangeRate === null,
         },
         status:
           isExpired && tenant.subscriptionStatus === 'ACTIVE'
