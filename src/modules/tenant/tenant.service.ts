@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { roundAmountForCurrency } from '../payments/currency.utils.js';
+import { normalizeCurrencyCode } from '../payments/currency-code.utils.js';
 import { ExchangeRateService } from '../payments/exchange-rate.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import {
@@ -32,7 +33,7 @@ export class TenantService {
   }
 
   private normalizeCurrencyCode(value: string) {
-    return value.trim().toUpperCase();
+    return normalizeCurrencyCode(value) ?? 'USD';
   }
 
   private toMoney(value: number) {

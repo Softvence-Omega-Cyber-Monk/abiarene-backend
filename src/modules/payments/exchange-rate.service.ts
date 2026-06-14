@@ -4,6 +4,7 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { normalizeCurrencyCode } from './currency-code.utils.js';
 
 @Injectable()
 export class ExchangeRateService {
@@ -21,8 +22,12 @@ export class ExchangeRateService {
   }
 
   async getRate(baseCurrency: string, quoteCurrency: string) {
-    const base = baseCurrency.trim().toUpperCase();
-    const quote = quoteCurrency.trim().toUpperCase();
+    const base = normalizeCurrencyCode(baseCurrency);
+    const quote = normalizeCurrencyCode(quoteCurrency);
+
+    if (!base || !quote) {
+      throw new BadRequestException('Base and quote currency are required');
+    }
 
     if (base === quote) {
       return 1;
