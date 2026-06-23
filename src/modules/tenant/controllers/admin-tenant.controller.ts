@@ -94,8 +94,8 @@ export class AdminTenantController {
     return this.service.updateStatus(tenantId, dto);
   }
 
-  @Get(':tenantId/roles')
-  @ApiOperation({ summary: 'List roles under a tenant for admin' })
+  @Get('all/:tenantId/roles')
+  @ApiOperation({ summary: 'List roles under any tenant for admin' })
   @ApiResponse({ status: 200, description: 'Tenant roles retrieved' })
   @ApiResponse({ status: 403, description: 'This route is for admin only' })
   @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
