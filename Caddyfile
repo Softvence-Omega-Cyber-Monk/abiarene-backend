@@ -1,5 +1,0 @@
-plgpro.com, www.plgpro.com {
-  encode gzip zstd
-
-  reverse_proxy backend:3000
-}
