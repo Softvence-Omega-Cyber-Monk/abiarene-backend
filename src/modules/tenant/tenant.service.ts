@@ -13,6 +13,7 @@ import {
   CreateTenantDto,
   ListTenantDto,
   ListTenantRolesDto,
+  OverviewGraphRange,
   UpdateTenantRolesDto,
   UpdateTenantDto,
 } from './tenant.dto.js';
@@ -46,6 +47,170 @@ export class TenantService {
     }
 
     return this.toMoney(((current - previous) / previous) * 100);
+  }
+
+  private startOfDay(date: Date) {
+    const result = new Date(date);
+    result.setHours(0, 0, 0, 0);
+    return result;
+  }
+
+  private startOfWeek(date: Date) {
+    const result = this.startOfDay(date);
+    const day = result.getDay();
+    const offset = day === 0 ? 6 : day - 1;
+    result.setDate(result.getDate() - offset);
+    return result;
+  }
+
+  private startOfMonth(date: Date) {
+    return new Date(date.getFullYear(), date.getMonth(), 1);
+  }
+
+  private startOfYear(date: Date) {
+    return new Date(date.getFullYear(), 0, 1);
+  }
+
+  private addDays(date: Date, days: number) {
+    const result = new Date(date);
+    result.setDate(result.getDate() + days);
+    return result;
+  }
+
+  private addMonths(date: Date, months: number) {
+    return new Date(date.getFullYear(), date.getMonth() + months, 1);
+  }
+
+  private addYears(date: Date, years: number) {
+    return new Date(date.getFullYear() + years, 0, 1);
+  }
+
+  private getOverviewPeriodStart(date: Date, range: OverviewGraphRange) {
+    switch (range) {
+      case 'weekly':
+        return this.startOfWeek(date);
+      case 'monthly':
+        return this.startOfMonth(date);
+      case 'yearly':
+        return this.startOfYear(date);
+      case 'daily':
+      default:
+        return this.startOfDay(date);
+    }
+  }
+
+  private getOverviewNextPeriodStart(date: Date, range: OverviewGraphRange) {
+    switch (range) {
+      case 'weekly':
+        return this.addDays(date, 7);
+      case 'monthly':
+        return this.addMonths(date, 1);
+      case 'yearly':
+        return this.addYears(date, 1);
+      case 'daily':
+      default:
+        return this.addDays(date, 1);
+    }
+  }
+
+  private getOverviewPeriodLabel(date: Date, range: OverviewGraphRange) {
+    switch (range) {
+      case 'weekly': {
+        const year = date.getFullYear();
+        const firstWeekStart = this.startOfWeek(new Date(year, 0, 1));
+        const diffInMs = date.getTime() - firstWeekStart.getTime();
+        const weekNumber = Math.floor(diffInMs / (7 * 24 * 60 * 60 * 1000)) + 1;
+        return `${year}-W${String(weekNumber).padStart(2, '0')}`;
+      }
+      case 'monthly':
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+          2,
+          '0',
+        )}`;
+      case 'yearly':
+        return `${date.getFullYear()}`;
+      case 'daily':
+      default:
+        return date.toISOString().slice(0, 10);
+    }
+  }
+
+  private buildOverviewGraph(
+    payments: Array<{ amount: number; createdAt: Date }>,
+    range: OverviewGraphRange,
+    now: Date,
+  ) {
+    const currentStart = this.getOverviewPeriodStart(now, range);
+    const currentEnd = this.getOverviewNextPeriodStart(currentStart, range);
+    const current = {
+      label: this.getOverviewPeriodLabel(currentStart, range),
+      value: 0,
+      transactionCount: 0,
+      startAt: currentStart,
+      endAt: currentEnd,
+    };
+
+    if (payments.length === 0) {
+      return {
+        range,
+        current,
+        history: [],
+      };
+    }
+
+    const firstHistoryStart = this.getOverviewPeriodStart(
+      payments[0].createdAt,
+      range,
+    );
+    const historyMap = new Map<
+      number,
+      {
+        label: string;
+        value: number;
+        transactionCount: number;
+        startAt: Date;
+        endAt: Date;
+      }
+    >();
+
+    for (
+      let cursor = new Date(firstHistoryStart);
+      cursor.getTime() < currentStart.getTime();
+      cursor = this.getOverviewNextPeriodStart(cursor, range)
+    ) {
+      const startAt = new Date(cursor);
+      historyMap.set(startAt.getTime(), {
+        label: this.getOverviewPeriodLabel(startAt, range),
+        value: 0,
+        transactionCount: 0,
+        startAt,
+        endAt: this.getOverviewNextPeriodStart(startAt, range),
+      });
+    }
+
+    for (const payment of payments) {
+      const periodStart = this.getOverviewPeriodStart(payment.createdAt, range);
+
+      if (periodStart.getTime() >= currentStart.getTime()) {
+        current.value = this.toMoney(current.value + payment.amount);
+        current.transactionCount += 1;
+        continue;
+      }
+
+      const existing = historyMap.get(periodStart.getTime());
+      if (!existing) {
+        continue;
+      }
+
+      existing.value = this.toMoney(existing.value + payment.amount);
+      existing.transactionCount += 1;
+    }
+
+    return {
+      range,
+      current,
+      history: Array.from(historyMap.values()),
+    };
   }
 
   private async withSubscriptionDisplayValue<
@@ -356,31 +521,22 @@ export class TenantService {
     });
   }
 
-  async getManagerOverview(tenantId: string) {
+  async getManagerOverview(
+    tenantId: string,
+    range: OverviewGraphRange = 'daily',
+  ) {
     await this.ensureTenantExists(tenantId);
 
     const now = new Date();
-    const todayStart = new Date(now);
-    todayStart.setHours(0, 0, 0, 0);
-
-    const tomorrowStart = new Date(todayStart);
-    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
-
-    const previousDayStart = new Date(todayStart);
-    previousDayStart.setDate(previousDayStart.getDate() - 1);
+    const todayStart = this.startOfDay(now);
+    const tomorrowStart = this.addDays(todayStart, 1);
+    const previousDayStart = this.addDays(todayStart, -1);
 
     const [
-      totalTransactions,
       activeDiscountCount,
-      todayPayments,
-      previousDayPayments,
+      payments,
+      tenant,
     ] = await Promise.all([
-      this.prisma.payment.count({
-        where: {
-          tenantId,
-          status: 'COMPLETED',
-        },
-      }),
       this.prisma.discount.count({
         where: {
           tenantId,
@@ -391,38 +547,48 @@ export class TenantService {
         where: {
           tenantId,
           status: 'COMPLETED',
-          createdAt: {
-            gte: todayStart,
-            lt: tomorrowStart,
-          },
         },
         select: {
           amount: true,
+          createdAt: true,
         },
+        orderBy: { createdAt: 'asc' },
       }),
-      this.prisma.payment.findMany({
-        where: {
-          tenantId,
-          status: 'COMPLETED',
-          createdAt: {
-            gte: previousDayStart,
-            lt: todayStart,
-          },
-        },
-        select: {
-          amount: true,
-        },
+      this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { currencyCode: true },
       }),
     ]);
 
+    let todaySalesAmount = 0;
+    let previousDaySalesAmount = 0;
+    let todayTransactions = 0;
+    let previousDayTransactions = 0;
+
+    for (const payment of payments) {
+      const createdAt = payment.createdAt;
+
+      if (createdAt >= todayStart && createdAt < tomorrowStart) {
+        todaySalesAmount = this.toMoney(todaySalesAmount + payment.amount);
+        todayTransactions += 1;
+        continue;
+      }
+
+      if (createdAt >= previousDayStart && createdAt < todayStart) {
+        previousDaySalesAmount = this.toMoney(
+          previousDaySalesAmount + payment.amount,
+        );
+        previousDayTransactions += 1;
+      }
+    }
+
+    const totalTransactions = payments.length;
     const todaySales = this.toMoney(
-      todayPayments.reduce((sum, payment) => sum + payment.amount, 0),
+      todaySalesAmount,
     );
     const previousDaySales = this.toMoney(
-      previousDayPayments.reduce((sum, payment) => sum + payment.amount, 0),
+      previousDaySalesAmount,
     );
-    const todayTransactions = todayPayments.length;
-    const previousDayTransactions = previousDayPayments.length;
 
     return {
       dailySales: todaySales,
@@ -443,8 +609,9 @@ export class TenantService {
       discounts: {
         activeCount: activeDiscountCount,
       },
+      graph: this.buildOverviewGraph(payments, range, now),
       meta: {
-        currency: 'USD',
+        currency: tenant?.currencyCode ?? 'USD',
         comparedAt: now,
         todayStart,
         previousDayStart,

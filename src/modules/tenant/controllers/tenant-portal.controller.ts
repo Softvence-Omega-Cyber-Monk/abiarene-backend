@@ -26,6 +26,8 @@ import {
   CreateTenantDto,
   InitiateSubscriptionPaymentDto,
   ListTenantRolesDto,
+  OVERVIEW_GRAPH_RANGES,
+  OverviewQueryDto,
   UpdateTenantDto,
 } from '../tenant.dto.js';
 import { TenantPortalService } from '../services/tenant-portal.service.js';
@@ -106,12 +108,83 @@ export class TenantPortalController {
   @ApiOperation({
     summary: 'Get manager overview metrics for the current tenant',
   })
+  @ApiQuery({
+    name: 'range',
+    required: false,
+    enum: OVERVIEW_GRAPH_RANGES,
+    example: 'daily',
+    description:
+      'Overview graph range. Returns current selected period and previous period history.',
+  })
   @ApiResponse({
     status: 200,
     description: 'Manager overview metrics retrieved',
+    content: {
+      'application/json': {
+        example: {
+          dailySales: 245.5,
+          sales: {
+            today: 245.5,
+            previousDay: 198.75,
+            changePercentage: 23.52,
+          },
+          transactions: {
+            total: 128,
+            today: 14,
+            previousDay: 11,
+            changePercentage: 27.27,
+          },
+          discounts: {
+            activeCount: 3,
+          },
+          graph: {
+            range: 'daily',
+            current: {
+              label: '2026-06-28',
+              value: 245.5,
+              transactionCount: 14,
+              startAt: '2026-06-28T00:00:00.000Z',
+              endAt: '2026-06-29T00:00:00.000Z',
+            },
+            history: [
+              {
+                label: '2026-06-25',
+                value: 180,
+                transactionCount: 9,
+                startAt: '2026-06-25T00:00:00.000Z',
+                endAt: '2026-06-26T00:00:00.000Z',
+              },
+              {
+                label: '2026-06-26',
+                value: 198.75,
+                transactionCount: 11,
+                startAt: '2026-06-26T00:00:00.000Z',
+                endAt: '2026-06-27T00:00:00.000Z',
+              },
+              {
+                label: '2026-06-27',
+                value: 210,
+                transactionCount: 12,
+                startAt: '2026-06-27T00:00:00.000Z',
+                endAt: '2026-06-28T00:00:00.000Z',
+              },
+            ],
+          },
+          meta: {
+            currency: 'USD',
+            comparedAt: '2026-06-28T10:30:00.000Z',
+            todayStart: '2026-06-28T00:00:00.000Z',
+            previousDayStart: '2026-06-27T00:00:00.000Z',
+          },
+        },
+      },
+    },
   })
-  overview(@CurrentUser() user: AuthUser | undefined) {
-    return this.service.overview(this.tenantId(user));
+  overview(
+    @CurrentUser() user: AuthUser | undefined,
+    @Query() query: OverviewQueryDto,
+  ) {
+    return this.service.overview(this.tenantId(user), query.range);
   }
 
   @Get('daily-sales-history')

@@ -38,6 +38,15 @@ export const PAYSTACK_SUPPORTED_CURRENCIES = [
   'XOF',
 ] as const;
 
+export const OVERVIEW_GRAPH_RANGES = [
+  'daily',
+  'weekly',
+  'monthly',
+  'yearly',
+] as const;
+
+export type OverviewGraphRange = (typeof OVERVIEW_GRAPH_RANGES)[number];
+
 export class CreateTenantDto {
   @ApiProperty({ description: 'Tenant name' })
   @IsString()
@@ -173,6 +182,18 @@ export class UpdateTenantDto {
 }
 
 export class ListTenantDto extends PaginationDto {}
+
+export class OverviewQueryDto {
+  @ApiPropertyOptional({
+    description: 'Graph range for tenant overview trend data',
+    enum: OVERVIEW_GRAPH_RANGES,
+    example: 'daily',
+    default: 'daily',
+  })
+  @IsOptional()
+  @IsIn(OVERVIEW_GRAPH_RANGES)
+  range?: OverviewGraphRange;
+}
 
 export class ListTenantRolesDto {
   @ApiPropertyOptional({ default: 1, minimum: 1 })
