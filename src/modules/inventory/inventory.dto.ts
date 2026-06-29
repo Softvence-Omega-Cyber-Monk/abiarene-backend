@@ -38,7 +38,15 @@ export class CreateInventoryDto {
 
 export class UpdateInventoryDto extends PartialType(CreateInventoryDto) {}
 
-export class ListInventoryDto extends PaginationDto {}
+export class ListInventoryDto extends PaginationDto {
+  @ApiPropertyOptional({
+    description: 'Search inventory by product name or barcode',
+    example: 'coke',
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
+}
 
 export class ListInventoryDeletionRequestsDto extends PaginationDto {
   @ApiPropertyOptional({

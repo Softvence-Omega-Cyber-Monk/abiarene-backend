@@ -3,6 +3,7 @@ import {
   CreateTenantDto,
   InitiateSubscriptionPaymentDto,
   ListTenantRolesDto,
+  OverviewGraphRange,
   UpdateTenantDto,
 } from '../tenant.dto.js';
 import { TenantSubscriptionService } from '../tenant-subscription.service.js';
@@ -37,8 +38,8 @@ export class TenantPortalService {
     return this.tenantService.createForSupervisor(userId, dto);
   }
 
-  overview(tenantId: string) {
-    return this.tenantService.getManagerOverview(tenantId);
+  overview(tenantId: string, range?: OverviewGraphRange) {
+    return this.tenantService.getManagerOverview(tenantId, range);
   }
 
   dailySalesHistory(tenantId: string, days?: number) {
