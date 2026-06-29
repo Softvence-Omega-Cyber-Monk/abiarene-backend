@@ -73,15 +73,18 @@ export class InventoryController {
   })
   @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
   @ApiQuery({ name: 'limit', required: false, type: String, example: '20' })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    example: '12345',
+    description: 'Search inventory by product name or barcode',
+  })
   list(
     @CurrentUser() user: AuthUser | undefined,
-    @Query('page') page: string = '1',
-    @Query('limit') limit: string = '20',
+    @Query() dto: ListInventoryDto,
   ) {
-    return this.service.list(this.tenantId(user), {
-      page: parseInt(page),
-      limit: parseInt(limit),
-    } as ListInventoryDto);
+    return this.service.list(this.tenantId(user), dto);
   }
 
   @Get('stock-alerts')

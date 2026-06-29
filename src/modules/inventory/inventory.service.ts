@@ -87,7 +87,28 @@ export class InventoryService {
   }
 
   async list(tenantId: string, dto: ListInventoryDto) {
-    const where = { tenantId } as any;
+    const trimmedSearch = dto.search?.trim();
+    const where = {
+      tenantId,
+      ...(trimmedSearch
+        ? {
+            OR: [
+              {
+                name: {
+                  contains: trimmedSearch,
+                  mode: 'insensitive',
+                },
+              },
+              {
+                barcode: {
+                  contains: trimmedSearch,
+                  mode: 'insensitive',
+                },
+              },
+            ],
+          }
+        : {}),
+    } as any;
     const [products, total] = await Promise.all([
       this.prisma.product.findMany({
         where,
