@@ -114,7 +114,7 @@ export class TenantPortalController {
     enum: OVERVIEW_GRAPH_RANGES,
     example: 'daily',
     description:
-      'Overview graph range. Returns current selected period and previous period history.',
+      'Overview graph range. Supervisor can use daily, weekly, monthly, quarterly, yearly. Manager can use daily and monthly only.',
   })
   @ApiResponse({
     status: 200,
@@ -184,7 +184,19 @@ export class TenantPortalController {
     @CurrentUser() user: AuthUser | undefined,
     @Query() query: OverviewQueryDto,
   ) {
-    return this.service.overview(this.tenantId(user), query.range);
+    const role = user?.role?.toUpperCase();
+    const range = query.range ?? 'daily';
+
+    if (
+      role === RoleName.MANAGER &&
+      !['daily', 'monthly'].includes(range)
+    ) {
+      throw new ForbiddenException(
+        'Manager can access only daily and monthly sales reports',
+      );
+    }
+
+    return this.service.overview(this.tenantId(user), range);
   }
 
   @Get('daily-sales-history')

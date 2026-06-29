@@ -51,38 +51,49 @@ export class TenantService {
 
   private startOfDay(date: Date) {
     const result = new Date(date);
-    result.setHours(0, 0, 0, 0);
+    result.setUTCHours(0, 0, 0, 0);
     return result;
   }
 
   private startOfWeek(date: Date) {
     const result = this.startOfDay(date);
-    const day = result.getDay();
+    const day = result.getUTCDay();
     const offset = day === 0 ? 6 : day - 1;
-    result.setDate(result.getDate() - offset);
+    result.setUTCDate(result.getUTCDate() - offset);
     return result;
   }
 
   private startOfMonth(date: Date) {
-    return new Date(date.getFullYear(), date.getMonth(), 1);
+    return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
   }
 
   private startOfYear(date: Date) {
-    return new Date(date.getFullYear(), 0, 1);
+    return new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
   }
 
   private addDays(date: Date, days: number) {
     const result = new Date(date);
-    result.setDate(result.getDate() + days);
+    result.setUTCDate(result.getUTCDate() + days);
     return result;
   }
 
   private addMonths(date: Date, months: number) {
-    return new Date(date.getFullYear(), date.getMonth() + months, 1);
+    return new Date(
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1),
+    );
   }
 
   private addYears(date: Date, years: number) {
-    return new Date(date.getFullYear() + years, 0, 1);
+    return new Date(Date.UTC(date.getUTCFullYear() + years, 0, 1));
+  }
+
+  private startOfQuarter(date: Date) {
+    const quarterStartMonth = Math.floor(date.getUTCMonth() / 3) * 3;
+    return new Date(Date.UTC(date.getUTCFullYear(), quarterStartMonth, 1));
+  }
+
+  private addQuarters(date: Date, quarters: number) {
+    return this.addMonths(date, quarters * 3);
   }
 
   private getOverviewPeriodStart(date: Date, range: OverviewGraphRange) {
@@ -91,6 +102,8 @@ export class TenantService {
         return this.startOfWeek(date);
       case 'monthly':
         return this.startOfMonth(date);
+      case 'quarterly':
+        return this.startOfQuarter(date);
       case 'yearly':
         return this.startOfYear(date);
       case 'daily':
@@ -105,6 +118,8 @@ export class TenantService {
         return this.addDays(date, 7);
       case 'monthly':
         return this.addMonths(date, 1);
+      case 'quarterly':
+        return this.addQuarters(date, 1);
       case 'yearly':
         return this.addYears(date, 1);
       case 'daily':
@@ -116,22 +131,30 @@ export class TenantService {
   private getOverviewPeriodLabel(date: Date, range: OverviewGraphRange) {
     switch (range) {
       case 'weekly': {
-        const year = date.getFullYear();
-        const firstWeekStart = this.startOfWeek(new Date(year, 0, 1));
+        const year = date.getUTCFullYear();
+        const firstWeekStart = this.startOfWeek(new Date(Date.UTC(year, 0, 1)));
         const diffInMs = date.getTime() - firstWeekStart.getTime();
         const weekNumber = Math.floor(diffInMs / (7 * 24 * 60 * 60 * 1000)) + 1;
         return `${year}-W${String(weekNumber).padStart(2, '0')}`;
       }
       case 'monthly':
-        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+        return `${date.getUTCFullYear()}-${String(
+          date.getUTCMonth() + 1,
+        ).padStart(
           2,
           '0',
         )}`;
+      case 'quarterly':
+        return `${date.getUTCFullYear()}-Q${
+          Math.floor(date.getUTCMonth() / 3) + 1
+        }`;
       case 'yearly':
-        return `${date.getFullYear()}`;
+        return `${date.getUTCFullYear()}`;
       case 'daily':
       default:
-        return date.toISOString().slice(0, 10);
+        return `${date.getUTCFullYear()}-${String(
+          date.getUTCMonth() + 1,
+        ).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
     }
   }
 
