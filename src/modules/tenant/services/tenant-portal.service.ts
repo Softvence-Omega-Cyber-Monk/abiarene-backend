@@ -42,8 +42,14 @@ export class TenantPortalService {
     tenantId: string,
     role: 'MANAGER' | 'SUPERVISOR',
     range?: OverviewGraphRange,
+    timezone?: string,
   ) {
-    return this.tenantService.getManagerOverview(tenantId, role, range);
+    return this.tenantService.getManagerOverview(
+      tenantId,
+      role,
+      range,
+      timezone,
+    );
   }
 
   dailySalesHistory(tenantId: string, days?: number) {

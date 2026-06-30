@@ -37,6 +37,86 @@ export class TenantService {
     return normalizeCurrencyCode(value) ?? 'USD';
   }
 
+  private resolveOverviewTimeZone(timeZone?: string) {
+    const resolvedTimeZone = timeZone?.trim() || 'UTC';
+
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone: resolvedTimeZone }).format(
+        new Date(),
+      );
+      return resolvedTimeZone;
+    } catch {
+      throw new BadRequestException('Invalid timezone');
+    }
+  }
+
+  private getTimeZoneParts(date: Date, timeZone: string) {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+      weekday: 'short',
+    });
+
+    const partMap = new Map(
+      formatter.formatToParts(date).map((part) => [part.type, part.value]),
+    );
+
+    return {
+      year: Number(partMap.get('year')),
+      month: Number(partMap.get('month')),
+      day: Number(partMap.get('day')),
+      hour: Number(partMap.get('hour')),
+      minute: Number(partMap.get('minute')),
+      second: Number(partMap.get('second')),
+      weekday: partMap.get('weekday') ?? 'Mon',
+    };
+  }
+
+  private shiftLocalDate(
+    input: { year: number; month: number; day: number },
+    days: number,
+  ) {
+    const shifted = new Date(
+      Date.UTC(input.year, input.month - 1, input.day + days),
+    );
+    return {
+      year: shifted.getUTCFullYear(),
+      month: shifted.getUTCMonth() + 1,
+      day: shifted.getUTCDate(),
+    };
+  }
+
+  private getTimeZoneOffsetMs(date: Date, timeZone: string) {
+    const parts = this.getTimeZoneParts(date, timeZone);
+    const asUtc = Date.UTC(
+      parts.year,
+      parts.month - 1,
+      parts.day,
+      parts.hour,
+      parts.minute,
+      parts.second,
+    );
+
+    return asUtc - date.getTime();
+  }
+
+  private zonedMidnightToUtc(
+    parts: { year: number; month: number; day: number },
+    timeZone: string,
+  ) {
+    const guess = new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+    const firstOffset = this.getTimeZoneOffsetMs(guess, timeZone);
+    const adjusted = new Date(guess.getTime() - firstOffset);
+    const secondOffset = this.getTimeZoneOffsetMs(adjusted, timeZone);
+    return new Date(guess.getTime() - secondOffset);
+  }
+
   private toMoney(value: number) {
     return Math.round(value * 100) / 100;
   }
@@ -49,26 +129,43 @@ export class TenantService {
     return this.toMoney(((current - previous) / previous) * 100);
   }
 
-  private startOfDay(date: Date) {
-    const result = new Date(date);
-    result.setUTCHours(0, 0, 0, 0);
-    return result;
+  private startOfDay(date: Date, timeZone = 'UTC') {
+    const parts = this.getTimeZoneParts(date, timeZone);
+    return this.zonedMidnightToUtc(parts, timeZone);
   }
 
-  private startOfWeek(date: Date) {
-    const result = this.startOfDay(date);
-    const day = result.getUTCDay();
-    const offset = day === 0 ? 6 : day - 1;
-    result.setUTCDate(result.getUTCDate() - offset);
-    return result;
+  private startOfWeek(date: Date, timeZone = 'UTC') {
+    const parts = this.getTimeZoneParts(date, timeZone);
+    const weekDayMap: Record<string, number> = {
+      Mon: 0,
+      Tue: 1,
+      Wed: 2,
+      Thu: 3,
+      Fri: 4,
+      Sat: 5,
+      Sun: 6,
+    };
+    const offset = weekDayMap[parts.weekday] ?? 0;
+    return this.zonedMidnightToUtc(
+      this.shiftLocalDate(parts, -offset),
+      timeZone,
+    );
   }
 
-  private startOfMonth(date: Date) {
-    return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+  private startOfMonth(date: Date, timeZone = 'UTC') {
+    const parts = this.getTimeZoneParts(date, timeZone);
+    return this.zonedMidnightToUtc(
+      { year: parts.year, month: parts.month, day: 1 },
+      timeZone,
+    );
   }
 
-  private startOfYear(date: Date) {
-    return new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  private startOfYear(date: Date, timeZone = 'UTC') {
+    const parts = this.getTimeZoneParts(date, timeZone);
+    return this.zonedMidnightToUtc(
+      { year: parts.year, month: 1, day: 1 },
+      timeZone,
+    );
   }
 
   private addDays(date: Date, days: number) {
@@ -87,28 +184,36 @@ export class TenantService {
     return new Date(Date.UTC(date.getUTCFullYear() + years, 0, 1));
   }
 
-  private startOfQuarter(date: Date) {
-    const quarterStartMonth = Math.floor(date.getUTCMonth() / 3) * 3;
-    return new Date(Date.UTC(date.getUTCFullYear(), quarterStartMonth, 1));
+  private startOfQuarter(date: Date, timeZone = 'UTC') {
+    const parts = this.getTimeZoneParts(date, timeZone);
+    const quarterStartMonth = Math.floor((parts.month - 1) / 3) * 3 + 1;
+    return this.zonedMidnightToUtc(
+      { year: parts.year, month: quarterStartMonth, day: 1 },
+      timeZone,
+    );
   }
 
   private addQuarters(date: Date, quarters: number) {
     return this.addMonths(date, quarters * 3);
   }
 
-  private getOverviewPeriodStart(date: Date, range: OverviewGraphRange) {
+  private getOverviewPeriodStart(
+    date: Date,
+    range: OverviewGraphRange,
+    timeZone = 'UTC',
+  ) {
     switch (range) {
       case 'weekly':
-        return this.startOfWeek(date);
+        return this.startOfWeek(date, timeZone);
       case 'monthly':
-        return this.startOfMonth(date);
+        return this.startOfMonth(date, timeZone);
       case 'quarterly':
-        return this.startOfQuarter(date);
+        return this.startOfQuarter(date, timeZone);
       case 'yearly':
-        return this.startOfYear(date);
+        return this.startOfYear(date, timeZone);
       case 'daily':
       default:
-        return this.startOfDay(date);
+        return this.startOfDay(date, timeZone);
     }
   }
 
@@ -128,33 +233,37 @@ export class TenantService {
     }
   }
 
-  private getOverviewPeriodLabel(date: Date, range: OverviewGraphRange) {
+  private getOverviewPeriodLabel(
+    date: Date,
+    range: OverviewGraphRange,
+    timeZone = 'UTC',
+  ) {
+    const parts = this.getTimeZoneParts(date, timeZone);
+
     switch (range) {
       case 'weekly': {
-        const year = date.getUTCFullYear();
-        const firstWeekStart = this.startOfWeek(new Date(Date.UTC(year, 0, 1)));
-        const diffInMs = date.getTime() - firstWeekStart.getTime();
-        const weekNumber = Math.floor(diffInMs / (7 * 24 * 60 * 60 * 1000)) + 1;
+        const year = parts.year;
+        const firstWeekStart = this.startOfWeek(
+          new Date(Date.UTC(year, 0, 1)),
+          timeZone,
+        );
+        const diffInDays = Math.floor(
+          (date.getTime() - firstWeekStart.getTime()) / (24 * 60 * 60 * 1000),
+        );
+        const weekNumber = Math.floor(diffInDays / 7) + 1;
         return `${year}-W${String(weekNumber).padStart(2, '0')}`;
       }
       case 'monthly':
-        return `${date.getUTCFullYear()}-${String(
-          date.getUTCMonth() + 1,
-        ).padStart(
-          2,
-          '0',
-        )}`;
+        return `${parts.year}-${String(parts.month).padStart(2, '0')}`;
       case 'quarterly':
-        return `${date.getUTCFullYear()}-Q${
-          Math.floor(date.getUTCMonth() / 3) + 1
-        }`;
+        return `${parts.year}-Q${Math.floor((parts.month - 1) / 3) + 1}`;
       case 'yearly':
-        return `${date.getUTCFullYear()}`;
+        return `${parts.year}`;
       case 'daily':
       default:
-        return `${date.getUTCFullYear()}-${String(
-          date.getUTCMonth() + 1,
-        ).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+        return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(
+          parts.day,
+        ).padStart(2, '0')}`;
     }
   }
 
@@ -169,11 +278,12 @@ export class TenantService {
     activeDiscounts: Array<{ createdAt: Date }>,
     range: OverviewGraphRange,
     now: Date,
+    timeZone = 'UTC',
   ) {
-    const currentStart = this.getOverviewPeriodStart(now, range);
+    const currentStart = this.getOverviewPeriodStart(now, range, timeZone);
     const currentEnd = this.getOverviewNextPeriodStart(currentStart, range);
     const current = {
-      label: this.getOverviewPeriodLabel(currentStart, range),
+      label: this.getOverviewPeriodLabel(currentStart, range, timeZone),
       sales: 0,
       transactions: 0,
       activeVouchers: 0,
@@ -192,6 +302,7 @@ export class TenantService {
     const firstHistoryStart = this.getOverviewPeriodStart(
       payments[0].createdAt,
       range,
+      timeZone,
     );
     const historyMap = new Map<
       number,
@@ -212,7 +323,7 @@ export class TenantService {
     ) {
       const startAt = new Date(cursor);
       historyMap.set(startAt.getTime(), {
-        label: this.getOverviewPeriodLabel(startAt, range),
+        label: this.getOverviewPeriodLabel(startAt, range, timeZone),
         sales: 0,
         transactions: 0,
         activeVouchers: 0,
@@ -222,7 +333,11 @@ export class TenantService {
     }
 
     for (const payment of payments) {
-      const periodStart = this.getOverviewPeriodStart(payment.createdAt, range);
+      const periodStart = this.getOverviewPeriodStart(
+        payment.createdAt,
+        range,
+        timeZone,
+      );
 
       if (periodStart.getTime() >= currentStart.getTime()) {
         current.sales = this.toMoney(current.sales + payment.amount);
@@ -243,6 +358,7 @@ export class TenantService {
       const periodStart = this.getOverviewPeriodStart(
         activeDiscount.createdAt,
         range,
+        timeZone,
       );
 
       if (periodStart.getTime() >= currentStart.getTime()) {
@@ -270,8 +386,9 @@ export class TenantService {
     activeDiscounts: Array<{ createdAt: Date }>,
     range: OverviewGraphRange,
     now: Date,
+    timeZone = 'UTC',
   ) {
-    const startAt = this.getOverviewPeriodStart(now, range);
+    const startAt = this.getOverviewPeriodStart(now, range, timeZone);
     const endAt = this.getOverviewNextPeriodStart(startAt, range);
     let sales = 0;
     let transactions = 0;
@@ -294,7 +411,7 @@ export class TenantService {
     }
 
     return {
-      label: this.getOverviewPeriodLabel(startAt, range),
+      label: this.getOverviewPeriodLabel(startAt, range, timeZone),
       sales,
       transactions,
       activeVouchers,
@@ -615,11 +732,13 @@ export class TenantService {
     tenantId: string,
     role: 'MANAGER' | 'SUPERVISOR',
     range: OverviewGraphRange = 'daily',
+    timeZone?: string,
   ) {
     await this.ensureTenantExists(tenantId);
 
+    const resolvedTimeZone = this.resolveOverviewTimeZone(timeZone);
     const now = new Date();
-    const todayStart = this.startOfDay(now);
+    const todayStart = this.startOfDay(now, resolvedTimeZone);
     const tomorrowStart = this.addDays(todayStart, 1);
     const previousDayStart = this.addDays(todayStart, -1);
 
@@ -695,6 +814,7 @@ export class TenantService {
           activeDiscounts,
           allowedRange,
           now,
+          resolvedTimeZone,
         ),
       ]),
     ) as Partial<
@@ -717,6 +837,7 @@ export class TenantService {
         activeDiscounts,
         selectedRange,
         now,
+        resolvedTimeZone,
       );
 
     return {
@@ -730,6 +851,7 @@ export class TenantService {
         sales: item.sales,
       })),
       currency: tenant?.currencyCode ?? 'USD',
+      timezone: resolvedTimeZone,
     };
   }
 

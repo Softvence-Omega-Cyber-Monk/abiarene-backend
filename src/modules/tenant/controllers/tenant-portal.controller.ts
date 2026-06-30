@@ -116,6 +116,14 @@ export class TenantPortalController {
     description:
       'Overview graph range. Supervisor can use daily, weekly, monthly, quarterly, yearly. Manager can use daily and monthly only.',
   })
+  @ApiQuery({
+    name: 'timezone',
+    required: false,
+    type: String,
+    example: 'Africa/Douala',
+    description:
+      'Optional IANA timezone override used for overview aggregation. Defaults to UTC.',
+  })
   @ApiResponse({
     status: 200,
     description: 'Manager overview metrics retrieved',
@@ -170,6 +178,7 @@ export class TenantPortalController {
       this.tenantId(user),
       role as 'MANAGER' | 'SUPERVISOR',
       range,
+      query.timezone,
     );
   }
 

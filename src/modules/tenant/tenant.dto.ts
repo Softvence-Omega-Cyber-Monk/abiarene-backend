@@ -194,6 +194,15 @@ export class OverviewQueryDto {
   @IsOptional()
   @IsIn(OVERVIEW_GRAPH_RANGES)
   range?: OverviewGraphRange;
+
+  @ApiPropertyOptional({
+    description:
+      'Optional IANA timezone override for overview aggregation, e.g. Asia/Dhaka or Africa/Douala. Defaults to UTC.',
+    example: 'Africa/Douala',
+  })
+  @IsOptional()
+  @IsString()
+  timezone?: string;
 }
 
 export class ListTenantRolesDto {
