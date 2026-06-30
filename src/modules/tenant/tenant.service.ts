@@ -158,8 +158,15 @@ export class TenantService {
     }
   }
 
+  private getAllowedOverviewRanges(role: 'MANAGER' | 'SUPERVISOR') {
+    return role === 'MANAGER'
+      ? (['daily', 'monthly'] as const)
+      : (['daily', 'weekly', 'monthly', 'quarterly', 'yearly'] as const);
+  }
+
   private buildOverviewGraph(
     payments: Array<{ amount: number; createdAt: Date }>,
+    activeDiscounts: Array<{ createdAt: Date }>,
     range: OverviewGraphRange,
     now: Date,
   ) {
@@ -167,8 +174,9 @@ export class TenantService {
     const currentEnd = this.getOverviewNextPeriodStart(currentStart, range);
     const current = {
       label: this.getOverviewPeriodLabel(currentStart, range),
-      value: 0,
-      transactionCount: 0,
+      sales: 0,
+      transactions: 0,
+      activeVouchers: 0,
       startAt: currentStart,
       endAt: currentEnd,
     };
@@ -189,8 +197,9 @@ export class TenantService {
       number,
       {
         label: string;
-        value: number;
-        transactionCount: number;
+        sales: number;
+        transactions: number;
+        activeVouchers: number;
         startAt: Date;
         endAt: Date;
       }
@@ -204,8 +213,9 @@ export class TenantService {
       const startAt = new Date(cursor);
       historyMap.set(startAt.getTime(), {
         label: this.getOverviewPeriodLabel(startAt, range),
-        value: 0,
-        transactionCount: 0,
+        sales: 0,
+        transactions: 0,
+        activeVouchers: 0,
         startAt,
         endAt: this.getOverviewNextPeriodStart(startAt, range),
       });
@@ -215,8 +225,8 @@ export class TenantService {
       const periodStart = this.getOverviewPeriodStart(payment.createdAt, range);
 
       if (periodStart.getTime() >= currentStart.getTime()) {
-        current.value = this.toMoney(current.value + payment.amount);
-        current.transactionCount += 1;
+        current.sales = this.toMoney(current.sales + payment.amount);
+        current.transactions += 1;
         continue;
       }
 
@@ -225,14 +235,71 @@ export class TenantService {
         continue;
       }
 
-      existing.value = this.toMoney(existing.value + payment.amount);
-      existing.transactionCount += 1;
+      existing.sales = this.toMoney(existing.sales + payment.amount);
+      existing.transactions += 1;
+    }
+
+    for (const activeDiscount of activeDiscounts) {
+      const periodStart = this.getOverviewPeriodStart(
+        activeDiscount.createdAt,
+        range,
+      );
+
+      if (periodStart.getTime() >= currentStart.getTime()) {
+        current.activeVouchers += 1;
+        continue;
+      }
+
+      const existing = historyMap.get(periodStart.getTime());
+      if (!existing) {
+        continue;
+      }
+
+      existing.activeVouchers += 1;
     }
 
     return {
       range,
       current,
       history: Array.from(historyMap.values()),
+    };
+  }
+
+  private buildCurrentRangeSummary(
+    payments: Array<{ amount: number; createdAt: Date }>,
+    activeDiscounts: Array<{ createdAt: Date }>,
+    range: OverviewGraphRange,
+    now: Date,
+  ) {
+    const startAt = this.getOverviewPeriodStart(now, range);
+    const endAt = this.getOverviewNextPeriodStart(startAt, range);
+    let sales = 0;
+    let transactions = 0;
+    let activeVouchers = 0;
+
+    for (const payment of payments) {
+      if (payment.createdAt >= startAt && payment.createdAt < endAt) {
+        sales = this.toMoney(sales + payment.amount);
+        transactions += 1;
+      }
+    }
+
+    for (const activeDiscount of activeDiscounts) {
+      if (
+        activeDiscount.createdAt >= startAt &&
+        activeDiscount.createdAt < endAt
+      ) {
+        activeVouchers += 1;
+      }
+    }
+
+    return {
+      label: this.getOverviewPeriodLabel(startAt, range),
+      sales,
+      transactions,
+      activeVouchers,
+      startAt,
+      endAt,
     };
   }
 
@@ -546,6 +613,7 @@ export class TenantService {
 
   async getManagerOverview(
     tenantId: string,
+    role: 'MANAGER' | 'SUPERVISOR',
     range: OverviewGraphRange = 'daily',
   ) {
     await this.ensureTenantExists(tenantId);
@@ -556,14 +624,17 @@ export class TenantService {
     const previousDayStart = this.addDays(todayStart, -1);
 
     const [
-      activeDiscountCount,
+      activeDiscounts,
       payments,
       tenant,
     ] = await Promise.all([
-      this.prisma.discount.count({
+      this.prisma.discount.findMany({
         where: {
           tenantId,
           isActive: true,
+        },
+        select: {
+          createdAt: true,
         },
       }),
       this.prisma.payment.findMany({
@@ -582,6 +653,11 @@ export class TenantService {
         select: { currencyCode: true },
       }),
     ]);
+
+    const allowedRanges = this.getAllowedOverviewRanges(role);
+    const selectedRange = allowedRanges.includes(range as never)
+      ? range
+      : allowedRanges[0];
 
     let todaySalesAmount = 0;
     let previousDaySalesAmount = 0;
@@ -609,40 +685,51 @@ export class TenantService {
     const totalSales = this.toMoney(
       payments.reduce((sum, payment) => sum + payment.amount, 0),
     );
-    const todaySales = this.toMoney(
-      todaySalesAmount,
-    );
-    const previousDaySales = this.toMoney(
-      previousDaySalesAmount,
-    );
+    const todaySales = this.toMoney(todaySalesAmount);
+    const previousDaySales = this.toMoney(previousDaySalesAmount);
+    const rangeSummaries = Object.fromEntries(
+      allowedRanges.map((allowedRange) => [
+        allowedRange,
+        this.buildCurrentRangeSummary(
+          payments,
+          activeDiscounts,
+          allowedRange,
+          now,
+        ),
+      ]),
+    ) as Partial<
+      Record<
+        OverviewGraphRange,
+        {
+          label: string;
+          sales: number;
+          transactions: number;
+          activeVouchers: number;
+          startAt: Date;
+          endAt: Date;
+        }
+      >
+    >;
+
+    const selectedSummary = rangeSummaries[selectedRange]!;
+    const history = this.buildOverviewGraph(
+        payments,
+        activeDiscounts,
+        selectedRange,
+        now,
+      );
 
     return {
-      dailySales: todaySales,
-      sales: {
-        total: totalSales,
-        today: todaySales,
-        previousDay: previousDaySales,
-        changePercentage: this.toPercentChange(todaySales, previousDaySales),
-      },
-      transactions: {
-        total: totalTransactions,
-        today: todayTransactions,
-        previousDay: previousDayTransactions,
-        changePercentage: this.toPercentChange(
-          todayTransactions,
-          previousDayTransactions,
-        ),
-      },
-      discounts: {
-        activeCount: activeDiscountCount,
-      },
-      graph: this.buildOverviewGraph(payments, range, now),
-      meta: {
-        currency: tenant?.currencyCode ?? 'USD',
-        comparedAt: now,
-        todayStart,
-        previousDayStart,
-      },
+      range: selectedRange,
+      sales: selectedSummary.sales,
+      transactions: selectedSummary.transactions,
+      activeVouchers: selectedSummary.activeVouchers,
+      overallTotalSales: totalSales,
+      history: history.history.map((item) => ({
+        label: item.label,
+        sales: item.sales,
+      })),
+      currency: tenant?.currencyCode ?? 'USD',
     };
   }
 

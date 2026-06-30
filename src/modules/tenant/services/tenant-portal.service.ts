@@ -38,8 +38,12 @@ export class TenantPortalService {
     return this.tenantService.createForSupervisor(userId, dto);
   }
 
-  overview(tenantId: string, range?: OverviewGraphRange) {
-    return this.tenantService.getManagerOverview(tenantId, range);
+  overview(
+    tenantId: string,
+    role: 'MANAGER' | 'SUPERVISOR',
+    range?: OverviewGraphRange,
+  ) {
+    return this.tenantService.getManagerOverview(tenantId, role, range);
   }
 
   dailySalesHistory(tenantId: string, days?: number) {

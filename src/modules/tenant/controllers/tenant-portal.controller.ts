@@ -122,61 +122,30 @@ export class TenantPortalController {
     content: {
       'application/json': {
         example: {
-          dailySales: 245.5,
-          sales: {
-            total: 8420.75,
-            today: 245.5,
-            previousDay: 198.75,
-            changePercentage: 23.52,
-          },
-          transactions: {
-            total: 128,
-            today: 14,
-            previousDay: 11,
-            changePercentage: 27.27,
-          },
-          discounts: {
-            activeCount: 3,
-          },
-          graph: {
-            range: 'daily',
-            current: {
-              label: '2026-06-28',
-              value: 245.5,
-              transactionCount: 14,
-              startAt: '2026-06-28T00:00:00.000Z',
-              endAt: '2026-06-29T00:00:00.000Z',
+          range: 'daily',
+          sales: 245.5,
+          transactions: 14,
+          activeVouchers: 0,
+          overallTotalSales: 8420.75,
+          history: [
+            {
+              label: 'Mon',
+              sales: 180,
             },
-            history: [
-              {
-                label: '2026-06-25',
-                value: 180,
-                transactionCount: 9,
-                startAt: '2026-06-25T00:00:00.000Z',
-                endAt: '2026-06-26T00:00:00.000Z',
-              },
-              {
-                label: '2026-06-26',
-                value: 198.75,
-                transactionCount: 11,
-                startAt: '2026-06-26T00:00:00.000Z',
-                endAt: '2026-06-27T00:00:00.000Z',
-              },
-              {
-                label: '2026-06-27',
-                value: 210,
-                transactionCount: 12,
-                startAt: '2026-06-27T00:00:00.000Z',
-                endAt: '2026-06-28T00:00:00.000Z',
-              },
-            ],
-          },
-          meta: {
-            currency: 'USD',
-            comparedAt: '2026-06-28T10:30:00.000Z',
-            todayStart: '2026-06-28T00:00:00.000Z',
-            previousDayStart: '2026-06-27T00:00:00.000Z',
-          },
+            {
+              label: 'Tue',
+              sales: 198.75,
+            },
+            {
+              label: 'Wed',
+              sales: 210,
+            },
+            {
+              label: 'Thu',
+              sales: 245.5,
+            },
+          ],
+          currency: 'XAF',
         },
       },
     },
@@ -197,7 +166,11 @@ export class TenantPortalController {
       );
     }
 
-    return this.service.overview(this.tenantId(user), range);
+    return this.service.overview(
+      this.tenantId(user),
+      role as 'MANAGER' | 'SUPERVISOR',
+      range,
+    );
   }
 
   @Get('daily-sales-history')
