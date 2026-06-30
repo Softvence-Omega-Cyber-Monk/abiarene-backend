@@ -606,6 +606,9 @@ export class TenantService {
     }
 
     const totalTransactions = payments.length;
+    const totalSales = this.toMoney(
+      payments.reduce((sum, payment) => sum + payment.amount, 0),
+    );
     const todaySales = this.toMoney(
       todaySalesAmount,
     );
@@ -616,6 +619,7 @@ export class TenantService {
     return {
       dailySales: todaySales,
       sales: {
+        total: totalSales,
         today: todaySales,
         previousDay: previousDaySales,
         changePercentage: this.toPercentChange(todaySales, previousDaySales),

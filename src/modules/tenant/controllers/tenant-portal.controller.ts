@@ -124,6 +124,7 @@ export class TenantPortalController {
         example: {
           dailySales: 245.5,
           sales: {
+            total: 8420.75,
             today: 245.5,
             previousDay: 198.75,
             changePercentage: 23.52,
