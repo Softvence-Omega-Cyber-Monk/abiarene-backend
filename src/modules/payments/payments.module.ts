@@ -1,5 +1,6 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { TenantModule } from '../tenant/tenant.module.js';
 import { ExchangeRateService } from './exchange-rate.service.js';
 import { MtnMomoPaymentProviderService } from './mtn-momo-payment-provider.service.js';
 import { PaymentsController } from './payments.controller.js';
@@ -9,7 +10,7 @@ import { PaymentsService } from './payments.service.js';
 import { StripePaymentProviderService } from './stripe-payment-provider.service.js';
 
 @Module({
-  imports: [ConfigModule],
+  imports: [ConfigModule, forwardRef(() => TenantModule)],
   controllers: [PaymentsController],
   providers: [
     PaymentsService,

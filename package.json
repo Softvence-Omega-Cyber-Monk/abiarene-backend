@@ -6,7 +6,7 @@
   "private": true,
   "engines": {
     "node": "22.x",
-    "pnpm": "9.x"
+    "pnpm": ">=9.x"
   },
   "license": "UNLICENSED",
   "scripts": {
@@ -28,7 +28,6 @@
     "prisma:seed": "prisma db seed"
   },
   "dependencies": {
-    "@prisma/client": "^6.19.3",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.3",
     "@nestjs/core": "^11.0.1",
@@ -39,6 +38,7 @@
     "@nestjs/swagger": "^11.2.6",
     "@nestjs/throttler": "^6.5.0",
     "@nestjs/websockets": "^11.1.18",
+    "@prisma/client": "^6.19.3",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
@@ -46,7 +46,8 @@
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "stripe": "^22.5.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -101,5 +102,6 @@
       "@prisma/engines",
       "prisma"
     ]
-  }
+  },
+  "packageManager": "pnpm@11.22.0+sha512.1ff870c4c6133dfd88fb2afc46dd13d47f09c9794b438c6fdb47ca98caf3bc16381ee0be93a091b8e3824cf01f889f46d7d9e20910fb0be1ab0fb5baa80dd621"
 }

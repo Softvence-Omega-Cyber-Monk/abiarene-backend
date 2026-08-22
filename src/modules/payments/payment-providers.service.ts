@@ -48,6 +48,10 @@ export class PaymentProvidersService {
     return this.stripeProvider.retrieveCheckoutSession(sessionId);
   }
 
+  constructStripeWebhookEvent(payload: Buffer | string, signature: string) {
+    return this.stripeProvider.constructWebhookEvent(payload, signature);
+  }
+
   getOrangeConfig(): ProviderConfig {
     return {
       baseUrl: this.getValue('ORANGE_API_BASE_URL'),

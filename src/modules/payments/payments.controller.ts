@@ -1,16 +1,41 @@
-import { Body, Controller, Delete, Get, Header, Param, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Header,
+  Headers,
+  Inject,
+  Param,
+  Patch,
+  Post,
+  Query,
+  RawBodyRequest,
+  Req,
+  UnauthorizedException,
+  forwardRef,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { AuthUser } from '../../common/interfaces/auth-user.interface.js';
 import { CreatePaymentsDto, ListPaymentsDto, UpdatePaymentsDto } from './payments.dto.js';
 import { PaymentsService } from './payments.service.js';
+import { PaymentProvidersService } from './payment-providers.service.js';
+import { TenantSubscriptionService } from '../tenant/tenant-subscription.service.js';
 
 @ApiTags('Payments')
 @ApiBearerAuth()
 @Controller('payments')
 export class PaymentsController {
-  constructor(private readonly service: PaymentsService) {}
+  constructor(
+    private readonly service: PaymentsService,
+    private readonly paymentProviders: PaymentProvidersService,
+    @Inject(forwardRef(() => TenantSubscriptionService))
+    private readonly tenantSubscriptionService: TenantSubscriptionService,
+  ) {}
   private tenantId(user?: AuthUser) {
     if (!user?.tenantId) throw new UnauthorizedException('Missing tenant context');
     return user.tenantId;
@@ -145,5 +170,32 @@ export class PaymentsController {
       message: 'Paystack finished processing the payment.',
       reference,
     });
+  }
+
+  @Post('webhooks/stripe')
+  @Public()
+  @ApiOperation({ summary: 'Stripe webhook receiver endpoint' })
+  async stripeWebhook(
+    @Req() req: any,
+    @Headers('stripe-signature') signature?: string,
+  ) {
+    if (!signature) {
+      throw new BadRequestException('Missing stripe-signature header');
+    }
+    const rawBody = (req as RawBodyRequest<Request>).rawBody;
+    if (!rawBody) {
+      throw new BadRequestException('Missing raw request body');
+    }
+
+    const event = this.paymentProviders.constructStripeWebhookEvent(
+      rawBody,
+      signature,
+    );
+
+    const result = await this.tenantSubscriptionService.handleStripeWebhookEvent(
+      event,
+    );
+
+    return { received: true, ...result };
   }
 }

@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import Stripe from 'stripe';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { normalizeCurrencyCode } from '../payments/currency-code.utils.js';
@@ -930,5 +931,53 @@ export class TenantSubscriptionService {
     }
 
     return { payment };
+  }
+
+  async handleStripeWebhookEvent(event: Stripe.Event) {
+    if (
+      event.type === 'checkout.session.completed' ||
+      event.type === 'invoice.payment_succeeded'
+    ) {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const clientReferenceId = session.client_reference_id;
+      const externalReference = session.id;
+
+      const payment = await this.prisma.subscriptionPayment.findFirst({
+        where: {
+          OR: [
+            clientReferenceId ? { reference: clientReferenceId } : undefined,
+            externalReference ? { externalReference } : undefined,
+          ].filter(Boolean) as any[],
+        },
+      });
+
+      if (payment && payment.status !== 'COMPLETED') {
+        const now = new Date();
+
+        await this.prisma.subscriptionPayment.update({
+          where: { id: payment.id },
+          data: {
+            status: 'COMPLETED',
+            completedAt: now,
+          },
+        });
+
+        await this.markVoucherUsed(payment.id, payment.userId, payment.voucherId);
+        await this.activateTenantSubscription(payment.tenantId);
+        const tenantName = await this.getTenantName(payment.tenantId);
+        await this.notifications.notifyTenantSubscriptionPaid({
+          tenantId: payment.tenantId,
+          tenantName,
+          provider: 'Stripe',
+          amount: payment.amount,
+          currency: payment.currency,
+          reference: payment.reference,
+        });
+
+        return { processed: true, paymentId: payment.id };
+      }
+    }
+
+    return { processed: false };
   }
 }

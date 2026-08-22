@@ -185,7 +185,7 @@ const swaggerStickyHeaderCss = `
 `;
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const port = parseInt(process.env.PORT ?? '3000', 10);
   const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',')

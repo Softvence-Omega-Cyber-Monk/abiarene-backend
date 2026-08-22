@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { NotificationsModule } from '../notifications/notifications.module.js';
 import { PaymentsModule } from '../payments/payments.module.js';
 import { AdminTenantController } from './controllers/admin-tenant.controller.js';
@@ -9,7 +9,7 @@ import { TenantSubscriptionService } from './tenant-subscription.service.js';
 import { TenantService } from './tenant.service.js';
 
 @Module({
-  imports: [PaymentsModule, NotificationsModule],
+  imports: [forwardRef(() => PaymentsModule), NotificationsModule],
   controllers: [AdminTenantController, TenantPortalController],
   providers: [
     TenantService,

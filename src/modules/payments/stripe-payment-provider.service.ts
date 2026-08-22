@@ -1,5 +1,6 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import Stripe from 'stripe';
 import { toMinorUnits } from './currency.utils.js';
 
 type StripeConfig = {
@@ -12,7 +13,46 @@ type StripeConfig = {
 
 @Injectable()
 export class StripePaymentProviderService {
+  private stripeClient: Stripe | null = null;
+
   constructor(private readonly configService: ConfigService) {}
+
+  private getStripeClient(): Stripe {
+    const stripeConfig = this.getConfig();
+    if (!stripeConfig.secretKey) {
+      throw new InternalServerErrorException(
+        'Stripe is not configured: missing STRIPE_SECRET_KEY',
+      );
+    }
+    if (!this.stripeClient) {
+      this.stripeClient = new Stripe(stripeConfig.secretKey);
+    }
+    return this.stripeClient;
+  }
+
+  constructWebhookEvent(
+    payload: Buffer | string,
+    signature: string,
+  ): Stripe.Event {
+    const stripeConfig = this.getConfig();
+    if (!stripeConfig.webhookSecret) {
+      throw new InternalServerErrorException(
+        'Stripe webhook is not configured: missing STRIPE_WEBHOOK_SECRET',
+      );
+    }
+    const stripe = this.getStripeClient();
+    try {
+      return stripe.webhooks.constructEvent(
+        payload,
+        signature,
+        stripeConfig.webhookSecret,
+      );
+    } catch (err: any) {
+      throw new InternalServerErrorException(
+        `Stripe webhook signature verification failed: ${err.message}`,
+      );
+    }
+  }
 
   private getValue(key: string) {
     return this.configService.get<string>(key) ?? null;
