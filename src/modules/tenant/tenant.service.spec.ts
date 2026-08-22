@@ -1,4 +1,4 @@
-import { TenantService } from './tenant.service';
+import { TenantService } from './tenant.service.js';
 
 describe('TenantService.getManagerOverview', () => {
   const tenantId = 'tenant-1';
@@ -10,6 +10,7 @@ describe('TenantService.getManagerOverview', () => {
       },
       discount: {
         count: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
       },
       payment: {
         findMany: jest.fn(),
@@ -34,8 +35,8 @@ describe('TenantService.getManagerOverview', () => {
     jest.clearAllMocks();
   });
 
-  it('returns daily graph with current day and previous daily history', async () => {
-    jest.setSystemTime(new Date('2026-06-28T10:30:00.000Z'));
+  it('returns daily overview with current day sales and previous history', async () => {
+    jest.setSystemTime(new Date('2026-06-28T10:30:00.000Z').getTime());
     const { service, prisma } = makeService();
 
     prisma.tenant.findUnique
@@ -50,35 +51,17 @@ describe('TenantService.getManagerOverview', () => {
       { amount: 125.5, createdAt: new Date('2026-06-28T09:30:00.000Z') },
     ]);
 
-    const result = await service.getManagerOverview(tenantId, 'daily');
+    const result = await service.getManagerOverview(tenantId, 'MANAGER', 'daily');
 
-    expect(result.dailySales).toBe(245.5);
-    expect(result.sales.today).toBe(245.5);
-    expect(result.sales.previousDay).toBe(210);
-    expect(result.transactions.total).toBe(5);
-    expect(result.transactions.today).toBe(2);
-    expect(result.transactions.previousDay).toBe(1);
-    expect(result.graph.range).toBe('daily');
-    expect(result.graph.current).toMatchObject({
-      label: '2026-06-28',
-      value: 245.5,
-      transactionCount: 2,
-    });
-    expect(result.graph.history).toHaveLength(2);
-    expect(result.graph.history[0]).toMatchObject({
-      label: '2026-06-26',
-      value: 180,
-      transactionCount: 2,
-    });
-    expect(result.graph.history[1]).toMatchObject({
-      label: '2026-06-27',
-      value: 210,
-      transactionCount: 1,
-    });
+    expect(result.range).toBe('daily');
+    expect(result.sales).toBe(245.5);
+    expect(result.transactions).toBe(2);
+    expect(result.overallTotalSales).toBe(635.5);
+    expect(result.currency).toBe('USD');
   });
 
-  it('returns weekly graph with current week and previous weekly history', async () => {
-    jest.setSystemTime(new Date('2026-06-24T10:30:00.000Z'));
+  it('returns weekly overview with current week and history', async () => {
+    jest.setSystemTime(new Date('2026-06-24T10:30:00.000Z').getTime());
     const { service, prisma } = makeService();
 
     prisma.tenant.findUnique
@@ -93,26 +76,16 @@ describe('TenantService.getManagerOverview', () => {
       { amount: 200, createdAt: new Date('2026-06-24T08:00:00.000Z') },
     ]);
 
-    const result = await service.getManagerOverview(tenantId, 'weekly');
+    const result = await service.getManagerOverview(tenantId, 'SUPERVISOR', 'weekly');
 
-    expect(result.graph.range).toBe('weekly');
-    expect(result.graph.current).toMatchObject({
-      label: '2026-W26',
-      value: 350,
-      transactionCount: 2,
-    });
-    expect(result.graph.history.map((item) => item.label)).toEqual([
-      '2026-W23',
-      '2026-W24',
-      '2026-W25',
-    ]);
-    expect(result.graph.history.map((item) => item.value)).toEqual([
-      300, 400, 500,
-    ]);
+    expect(result.range).toBe('weekly');
+    expect(result.sales).toBe(350);
+    expect(result.transactions).toBe(2);
+    expect(result.overallTotalSales).toBe(1550);
   });
 
-  it('returns monthly graph with current month and previous monthly history', async () => {
-    jest.setSystemTime(new Date('2026-06-24T10:30:00.000Z'));
+  it('returns monthly overview with current month and history', async () => {
+    jest.setSystemTime(new Date('2026-06-24T10:30:00.000Z').getTime());
     const { service, prisma } = makeService();
 
     prisma.tenant.findUnique
@@ -127,27 +100,16 @@ describe('TenantService.getManagerOverview', () => {
       { amount: 180, createdAt: new Date('2026-06-21T08:00:00.000Z') },
     ]);
 
-    const result = await service.getManagerOverview(tenantId, 'monthly');
+    const result = await service.getManagerOverview(tenantId, 'MANAGER', 'monthly');
 
-    expect(result.graph.range).toBe('monthly');
-    expect(result.graph.current).toMatchObject({
-      label: '2026-06',
-      value: 300,
-      transactionCount: 2,
-    });
-    expect(result.graph.history.map((item) => item.label)).toEqual([
-      '2026-02',
-      '2026-03',
-      '2026-04',
-      '2026-05',
-    ]);
-    expect(result.graph.history.map((item) => item.value)).toEqual([
-      220, 330, 0, 440,
-    ]);
+    expect(result.range).toBe('monthly');
+    expect(result.sales).toBe(300);
+    expect(result.transactions).toBe(2);
+    expect(result.overallTotalSales).toBe(1290);
   });
 
-  it('returns yearly graph with current year and previous yearly history', async () => {
-    jest.setSystemTime(new Date('2026-06-24T10:30:00.000Z'));
+  it('returns yearly overview with current year and history', async () => {
+    jest.setSystemTime(new Date('2026-06-24T10:30:00.000Z').getTime());
     const { service, prisma } = makeService();
 
     prisma.tenant.findUnique
@@ -162,26 +124,16 @@ describe('TenantService.getManagerOverview', () => {
       { amount: 2200, createdAt: new Date('2026-05-10T08:00:00.000Z') },
     ]);
 
-    const result = await service.getManagerOverview(tenantId, 'yearly');
+    const result = await service.getManagerOverview(tenantId, 'SUPERVISOR', 'yearly');
 
-    expect(result.graph.range).toBe('yearly');
-    expect(result.graph.current).toMatchObject({
-      label: '2026',
-      value: 4000,
-      transactionCount: 2,
-    });
-    expect(result.graph.history.map((item) => item.label)).toEqual([
-      '2023',
-      '2024',
-      '2025',
-    ]);
-    expect(result.graph.history.map((item) => item.value)).toEqual([
-      1200, 2400, 3600,
-    ]);
+    expect(result.range).toBe('yearly');
+    expect(result.sales).toBe(4000);
+    expect(result.transactions).toBe(2);
+    expect(result.overallTotalSales).toBe(11200);
   });
 
   it('returns empty history and zero current when there are no payments', async () => {
-    jest.setSystemTime(new Date('2026-06-24T10:30:00.000Z'));
+    jest.setSystemTime(new Date('2026-06-24T10:30:00.000Z').getTime());
     const { service, prisma } = makeService();
 
     prisma.tenant.findUnique
@@ -190,15 +142,12 @@ describe('TenantService.getManagerOverview', () => {
     prisma.discount.count.mockResolvedValue(0);
     prisma.payment.findMany.mockResolvedValue([]);
 
-    const result = await service.getManagerOverview(tenantId, 'daily');
+    const result = await service.getManagerOverview(tenantId, 'MANAGER', 'daily');
 
-    expect(result.dailySales).toBe(0);
-    expect(result.transactions.total).toBe(0);
-    expect(result.graph.current).toMatchObject({
-      label: '2026-06-24',
-      value: 0,
-      transactionCount: 0,
-    });
-    expect(result.graph.history).toEqual([]);
+    expect(result.range).toBe('daily');
+    expect(result.sales).toBe(0);
+    expect(result.transactions).toBe(0);
+    expect(result.overallTotalSales).toBe(0);
+    expect(result.history).toEqual([]);
   });
 });

@@ -15,8 +15,8 @@ describe('AppController', () => {
   });
 
   describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+    it('should return landing page html', () => {
+      expect(appController.getHello()).toContain('Restaurant POS SaaS API');
     });
   });
 });
