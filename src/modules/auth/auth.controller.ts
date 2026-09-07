@@ -11,7 +11,7 @@ import type { AuthUser } from '../../common/interfaces/auth-user.interface.js';
 import { AuthService } from './auth.service.js';
 import {
   LoginDto,
-  RegisterSupervisorDto,
+  RegisterOwnerDto,
   TenantResponse,
   UserResponse,
 } from './auth.dto.js';
@@ -57,12 +57,12 @@ export class AuthController {
   @Post('register')
   @Public()
   @ApiOperation({
-    summary: 'Create a supervisor account before tenant onboarding',
+    summary: 'Create an owner account before tenant onboarding',
   })
-  @ApiResponse({ status: 201, description: 'Supervisor account created' })
+  @ApiResponse({ status: 201, description: 'Owner account created' })
   @ApiResponse({ status: 400, description: 'Email already exists' })
-  register(@Body() dto: RegisterSupervisorDto) {
-    return this.authService.registerSupervisor(dto);
+  register(@Body() dto: RegisterOwnerDto) {
+    return this.authService.registerOwner(dto);
   }
 
   @Post('logout')

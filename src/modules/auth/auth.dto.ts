@@ -1,18 +1,18 @@
 import { IsEmail, IsString, Matches, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class RegisterSupervisorDto {
-  @ApiProperty({ description: 'Supervisor name', example: 'Sara Supervisor' })
+export class RegisterOwnerDto {
+  @ApiProperty({ description: 'Owner name', example: 'Sara Owner' })
   @IsString()
   @MinLength(2)
   name!: string;
 
-  @ApiProperty({ description: 'Supervisor email', example: 'supervisor@example.com' })
+  @ApiProperty({ description: 'Owner email', example: 'owner@example.com' })
   @IsEmail()
   email!: string;
 
   @ApiProperty({
-    description: '4-digit supervisor PIN',
+    description: '4-digit owner PIN',
     minLength: 4,
     maxLength: 4,
     pattern: '^\\d{4}$',
@@ -22,6 +22,9 @@ export class RegisterSupervisorDto {
   @Matches(/^\d{4}$/, { message: 'PIN must be exactly 4 digits' })
   pin!: string;
 }
+
+/** @deprecated Use RegisterOwnerDto */
+export class RegisterSupervisorDto extends RegisterOwnerDto {}
 
 export class LoginDto {
   @ApiProperty({

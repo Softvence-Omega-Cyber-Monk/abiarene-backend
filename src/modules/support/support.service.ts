@@ -81,9 +81,9 @@ export class SupportService {
     }
 
     return {
-      senderRole: 'SUPERVISOR' as const,
-      senderName: user.name ?? 'Supervisor',
-      senderEmail: user.email ?? 'supervisor',
+      senderRole: 'OWNER' as const,
+      senderName: user.name ?? 'Owner',
+      senderEmail: user.email ?? 'owner',
     };
   }
 

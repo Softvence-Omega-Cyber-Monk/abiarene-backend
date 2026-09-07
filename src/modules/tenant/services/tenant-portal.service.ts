@@ -34,13 +34,18 @@ export class TenantPortalService {
     };
   }
 
+  createForOwner(userId: string, dto: CreateTenantDto) {
+    return this.tenantService.createForOwner(userId, dto);
+  }
+
+  /** @deprecated Use createForOwner */
   createForSupervisor(userId: string, dto: CreateTenantDto) {
-    return this.tenantService.createForSupervisor(userId, dto);
+    return this.createForOwner(userId, dto);
   }
 
   overview(
     tenantId: string,
-    role: 'MANAGER' | 'SUPERVISOR',
+    role: 'MANAGER' | 'SUPERVISOR' | 'OWNER',
     range?: OverviewGraphRange,
     timezone?: string,
   ) {

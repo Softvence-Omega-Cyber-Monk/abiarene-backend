@@ -76,7 +76,7 @@ describe('TenantService.getManagerOverview', () => {
       { amount: 200, createdAt: new Date('2026-06-24T08:00:00.000Z') },
     ]);
 
-    const result = await service.getManagerOverview(tenantId, 'SUPERVISOR', 'weekly');
+    const result = await service.getManagerOverview(tenantId, 'OWNER', 'weekly');
 
     expect(result.range).toBe('weekly');
     expect(result.sales).toBe(350);
@@ -124,7 +124,7 @@ describe('TenantService.getManagerOverview', () => {
       { amount: 2200, createdAt: new Date('2026-05-10T08:00:00.000Z') },
     ]);
 
-    const result = await service.getManagerOverview(tenantId, 'SUPERVISOR', 'yearly');
+    const result = await service.getManagerOverview(tenantId, 'OWNER', 'yearly');
 
     expect(result.range).toBe('yearly');
     expect(result.sales).toBe(4000);

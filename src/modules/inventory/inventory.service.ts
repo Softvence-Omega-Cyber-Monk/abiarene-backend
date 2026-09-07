@@ -216,7 +216,7 @@ export class InventoryService {
     }
 
     const actorRole = actor.role.toUpperCase();
-    if (actorRole === 'SUPERVISOR') {
+    if (actorRole === 'OWNER' || actorRole === 'SUPERVISOR' || actorRole === 'ADMIN') {
       const { deletedProduct, clearedRequests } = await this.prisma.$transaction(
         async (tx) => {
           const deletedProduct = await tx.product.deleteMany({
@@ -245,7 +245,7 @@ export class InventoryService {
 
     if (actorRole !== 'MANAGER') {
       throw new ForbiddenException(
-        'Only supervisor can delete directly. Manager requires supervisor approval.',
+        'Only owner or supervisor can delete directly. Manager requires approval.',
       );
     }
 
@@ -260,7 +260,7 @@ export class InventoryService {
 
     if (existingPendingRequest) {
       throw new BadRequestException(
-        'A supervisor approval request is already pending for this inventory item',
+        'An approval request is already pending for this inventory item',
       );
     }
 
@@ -295,7 +295,7 @@ export class InventoryService {
 
     return {
       mode: 'APPROVAL_REQUESTED',
-      message: 'Supervisor approval is required before this inventory item can be deleted.',
+      message: 'Owner or supervisor approval is required before this inventory item can be deleted.',
       request: {
         id: request.id,
         status: request.status,

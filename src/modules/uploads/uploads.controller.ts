@@ -30,10 +30,10 @@ export class UploadsController {
 
   @Post('image')
   @AllowWithoutTenant()
-  @Roles('admin', 'supervisor')
+  @Roles('admin', 'owner')
   @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({
-    summary: 'Upload an image to Cloudinary for admin or supervisor',
+    summary: 'Upload an image to Cloudinary for admin or owner',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -49,7 +49,7 @@ export class UploadsController {
     },
   })
   @ApiResponse({ status: 201, description: 'Image uploaded successfully' })
-  @ApiResponse({ status: 403, description: 'Only admin or supervisor can upload images' })
+  @ApiResponse({ status: 403, description: 'Only admin or owner can upload images' })
   uploadImage(@UploadedFile() file: UploadedImageFile) {
     return this.service.uploadImage(file);
   }

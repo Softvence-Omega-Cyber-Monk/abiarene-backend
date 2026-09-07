@@ -35,7 +35,7 @@ async function main() {
   });
 
   const roles = await Promise.all(
-    ['MANAGER', 'SUPERVISOR', 'SERVER', 'KITCHEN', 'CASHIER'].map((name) =>
+    ['OWNER', 'MANAGER', 'SUPERVISOR', 'SERVER', 'KITCHEN', 'CASHIER'].map((name) =>
       prisma.role.upsert({
         where: { name_tenantId: { name, tenantId: tenant.id } },
         update: { isActive: true },
@@ -44,9 +44,24 @@ async function main() {
     ),
   );
 
+  const ownerRole = roles.find((role) => role.name === 'OWNER');
   const managerRole = roles.find((role) => role.name === 'MANAGER');
   const supervisorRole = roles.find((role) => role.name === 'SUPERVISOR');
   const serverRole = roles.find((role) => role.name === 'SERVER');
+
+  await prisma.user.upsert({
+    where: { id: 'user-owner-1' },
+    update: { email: 'sara.owner@example.com' },
+    create: {
+      id: 'user-owner-1',
+      name: 'Sara Owner',
+      email: 'sara.owner@example.com',
+      pin: '3333',
+      roleId: ownerRole.id,
+      tenantId: tenant.id,
+      status: 'ACTIVE',
+    },
+  });
 
   await prisma.user.upsert({
     where: { id: 'user-manager-1' },
@@ -64,12 +79,12 @@ async function main() {
 
   await prisma.user.upsert({
     where: { id: 'user-supervisor-1' },
-    update: { email: 'sara.supervisor@example.com' },
+    update: { email: 'sam.supervisor@example.com' },
     create: {
       id: 'user-supervisor-1',
-      name: 'Sara Supervisor',
-      email: 'sara.supervisor@example.com',
-      pin: '3333',
+      name: 'Sam Supervisor',
+      email: 'sam.supervisor@example.com',
+      pin: '4444',
       roleId: supervisorRole.id,
       tenantId: tenant.id,
       status: 'ACTIVE',

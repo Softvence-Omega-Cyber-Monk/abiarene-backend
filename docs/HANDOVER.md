@@ -12,6 +12,13 @@ AbiArene is a multi-tenant POS SaaS backend. One shared PostgreSQL database stor
 
 Use Swagger as the source of truth for every DTO and response body. This document records ownership, business flows, state transitions, and deployment details.
 
+Related docs:
+
+- System workflow diagrams: [system-workflow.md](./system-workflow.md)
+- Roles, decorators, guards, permission matrix: [role.md](./role.md)
+- Role-by-role API playbooks: [workflows/](./workflows/README.md)
+- **Frontend migration (OWNER + staff SUPERVISOR):** [FRONTEND_OWNER_SUPERVISOR_MIGRATION.md](./FRONTEND_OWNER_SUPERVISOR_MIGRATION.md)
+
 ## 2. Local run
 
 ```bash
@@ -58,7 +65,7 @@ Do not use Docker service names such as `redis` from a locally running backend u
 Global guards are registered in `src/app.module.ts` in this order:
 
 1. `JwtAuthGuard`: blocks non-public requests without a valid JWT.
-2. `TenantGuard`: requires a staff token to contain `tenantId`; admins bypass that requirement; supervisor tenant creation is explicitly allowed before a tenant exists.
+2. `TenantGuard`: requires a staff token to contain `tenantId`; admins bypass that requirement; owner tenant creation is explicitly allowed before a tenant exists (`@AllowWithoutTenant`).
 3. `RolesGuard`: checks the `@Roles(...)` decorator on each route.
 
 Roles in the system:
@@ -66,8 +73,9 @@ Roles in the system:
 | Role | Main responsibility |
 | --- | --- |
 | `ADMIN` | Platform owner: plans, tenant oversight, admin-side user/table/item management, tenant vouchers, support replies. |
-| `SUPERVISOR` | Creates and owns a tenant, manages staff and tenant configuration, subscriptions, reports, inventory approval. |
-| `MANAGER` | Runs day-to-day business, staff/inventory/menu/table management, limited reports. |
+| `OWNER` | Creates and owns a tenant, enables staff roles, subscriptions, support, credential reset, full reports, inventory/discount approval. |
+| `SUPERVISOR` | Staff: same as manager plus elevated inventory, discount approval, and cashier supervision. Cannot enable roles or open support. |
+| `MANAGER` | Day-to-day business, staff/inventory/menu/table management, limited reports; inventory delete needs approval; discount drafts only. |
 | `SERVER` | Dine-in tables and orders. |
 | `KITCHEN` | Kitchen board and ticket processing. |
 | `CASHIER` | Direct orders, checkout, payment completion. |
@@ -77,13 +85,14 @@ Important rule: tenant-scoped service queries must always filter by `tenantId`. 
 ## 5. Core onboarding and subscription flow
 
 ```text
-Supervisor registration
+Owner registration
   -> POST /api/auth/register
-  -> account has SUPERVISOR role but no tenant yet
+  -> account has OWNER pendingRole but no tenant yet
 
 Tenant setup
   -> POST /api/tenant/create
-  -> supervisor selects industry, countryCode, currencyCode and subscriptionPriceId
+  -> owner selects industry, countryCode, currencyCode and subscriptionPriceId
+  -> optional staff role flags: manager, supervisor, server, kitchen, cashier
   -> tenant is ACTIVE but subscription is PENDING
   -> optional 7-day free trial when startWithFreeTrial=true
 
@@ -116,9 +125,9 @@ Key subscription routes:
 | --- | --- | --- |
 | `GET /api/admin/subscription-prices?currency=EUR` | Public | List plans; optionally return converted display values. |
 | `POST/PATCH/DELETE /api/admin/subscription-prices` | Admin | Manage fixed subscription plans. |
-| `GET /api/tenant/subscription/me?currency=EUR` | Supervisor, Manager | Current subscription and converted payment preview. |
-| `POST /api/tenant/subscription/pay` | Supervisor, Manager | Start payment. |
-| `GET /api/tenant/subscription/payments/:reference/status` | Supervisor, Manager | Poll provider payment status. |
+| `GET /api/tenant/subscription/me?currency=EUR` | Owner, Manager, Supervisor | Current subscription and converted payment preview. |
+| `POST /api/tenant/subscription/pay` | Owner, Manager, Supervisor | Start payment. |
+| `GET /api/tenant/subscription/payments/:reference/status` | Owner, Manager, Supervisor | Poll provider payment status. |
 | `POST /api/payments/webhooks/stripe` | Public Stripe endpoint | Verify and process Stripe payment event. |
 
 ## 6. Business operation flows
@@ -180,7 +189,7 @@ Cashier completes direct payment
 ### C. Inventory deletion approval
 
 ```text
-Supervisor deletes item
+Owner or Supervisor deletes item
   -> DELETE /api/inventory/:id
   -> product is deleted directly
 
@@ -188,7 +197,7 @@ Manager deletes item
   -> DELETE /api/inventory/:id
   -> PENDING InventoryDeletionRequest is created; product remains visible
 
-Supervisor approves or rejects
+Owner or Supervisor approves or rejects
   -> POST /api/inventory/delete-requests/:requestId/approve
      product and related pending request are deleted
   -> POST /api/inventory/delete-requests/:requestId/reject
@@ -200,22 +209,23 @@ Supervisor approves or rejects
 ### D. Staff management
 
 ```text
-Supervisor creates tenant
-  -> supervisor account is attached to the new tenant
+Owner creates tenant
+  -> owner account is attached to the new tenant
 
-Supervisor/Manager creates staff
+Owner/Manager creates staff
   -> POST /api/users
-  -> roles may be enabled with PATCH /api/tenant/:tenantId/roles
+  -> roles may be enabled with PATCH /api/tenant/:tenantId/roles (Owner or Admin only)
+     body may include supervisor, manager, server, kitchen, cashier
 
-Supervisor resets staff credentials
+Owner resets staff credentials
   -> PATCH /api/users/:id/reset-credentials
-  -> targets Manager, Cashier, Server, Kitchen only
+  -> targets Manager, Supervisor, Cashier, Server, Kitchen
 
-Admin resets supervisor credentials
-  -> PATCH /api/users/tenant/:tenantId/:id/reset-supervisor-credentials
+Admin resets owner credentials
+  -> PATCH /api/users/tenant/:tenantId/:id/reset-owner-credentials
 ```
 
-Staff PIN is optional in the schema. Any credential-reset flow updates `tokenVersion`; the client must discard its old token and log in again.
+Staff PIN is optional in the schema. Any credential-reset flow updates email/pin; the client should discard its old token and log in again after logout or forced re-auth.
 
 ## 7. Reporting
 
@@ -223,14 +233,14 @@ Route: `GET /api/tenant/overview?range=daily&timezone=Africa/Douala`
 
 Allowed ranges:
 
-- Supervisor: `daily`, `weekly`, `monthly`, `quarterly`, `yearly`.
-- Manager: `daily`, `monthly` only.
+- Owner: `daily`, `weekly`, `monthly`, `quarterly`, `yearly`.
+- Manager and Supervisor: `daily`, `monthly` only.
 
 The response contains selected-period `sales`, `transactions`, `activeVouchers`, lifetime `overallTotalSales`, graph-ready historical sales points, and tenant `currency`.
 
 The optional `timezone` must be an IANA timezone, for example `Asia/Dhaka`, `Africa/Douala`, `Europe/Paris`, or `UTC`. The backend converts local period boundaries to UTC before querying. This prevents a local 00:00 sale from appearing on the previous/next day in the dashboard.
 
-Other manager/supervisor report routes:
+Other manager/owner/supervisor report routes:
 
 - `GET /api/tenant/daily-sales-history?days=7`
 - `GET /api/tenant/total-transactions`
@@ -267,10 +277,10 @@ The current gateway does not emit separate `table-update` or `kitchen-ready` soc
 
 | Swagger tag / route base | Responsibility |
 | --- | --- |
-| `Auth` / `/api/auth` | Register supervisor, login, logout, public tenant and tenant-user lookup. |
+| `Auth` / `/api/auth` | Register owner, login, logout, public tenant and tenant-user lookup. |
 | `Admin` / `/api/admin` | Dashboard, subscription prices, tenant-scoped subscription vouchers. |
 | `Admin Tenant` / `/api/tenant/all` | Admin tenant listing and cross-tenant role lookup. |
-| `Tenant Portal` / `/api/tenant` | Supervisor onboarding, current tenant, role enablement, reports, subscription. |
+| `Tenant Portal` / `/api/tenant` | Owner onboarding, current tenant, role enablement (owner), reports, subscription. |
 | `Users` / `/api/users` | Tenant staff and admin cross-tenant staff operations. |
 | `Inventory` / `/api/inventory` | Products, stock alerts, search, deletion approvals. |
 | `Items` / `/api/items` | Tenant menu item CRUD. Search accepts `search` for name/category. |
@@ -279,10 +289,10 @@ The current gateway does not emit separate `table-update` or `kitchen-ready` soc
 | `Orders` / `/api/orders` | Dine-in/direct orders, kitchen handoff, direct checkout, history. |
 | `Tickets` / `/api/tickets` | Kitchen board and ticket lifecycle. |
 | `Payments` / `/api/payments` | Payment CRUD and subscription provider callbacks/webhooks. |
-| `Discount` / `/api/discount` | Tenant discounts/vouchers used at checkout. |
+| `Discount` / `/api/discount` | Tenant discounts/vouchers used at checkout (manager drafts; owner/supervisor activate). |
 | `Notifications` / `/api/notifications` | Persistent in-app notification inbox. |
-| `Support` / `/api/support` | Supervisor-to-admin support ticket messages. |
-| `Uploads` / `/api/uploads/image` | Cloudinary upload; admin and supervisor only. |
+| `Support` / `/api/support` | Owner-to-admin support ticket messages. |
+| `Uploads` / `/api/uploads/image` | Cloudinary upload; admin and owner only. |
 
 ## 10. Data model and state values
 
@@ -351,18 +361,19 @@ Open inbound TCP port `3000` in the EC2 security group for temporary direct acce
 - Do not expose provider secret keys, database URLs, or JWT secrets in source, Swagger examples, logs, or handover material.
 - Keep `tokenVersion` checks in both HTTP JWT validation and Socket.IO connection validation. They invalidate old tokens after logout/reset.
 - Preserve tenant filtering on every tenant-owned query and relation lookup.
-- Do not allow manager deletion requests to delete inventory before supervisor approval.
+- Do not allow manager deletion requests to delete inventory before owner/supervisor approval.
 - Direct cashier orders deliberately have `tableId=null` and must use direct checkout, not `/tables/:id/cashier-checkout`.
 - Stripe payment completion must be trusted from the verified webhook/provider status, not from a client redirect alone.
 - Payment/provider currencies are ISO codes. UI labels can say `CFA`, but backend values must use `XAF`.
 - Existing timestamps are UTC. Reporting must retain timezone-aware boundaries when adding charts or date filters.
-- `GET /api/tenant/:tenantId/roles` is shared for admin and own-tenant manager/supervisor access. Admin cross-tenant route is `GET /api/tenant/all/:tenantId/roles`; do not reintroduce duplicate route patterns.
+- `GET /api/tenant/:tenantId/roles` is shared for admin and own-tenant manager/supervisor/owner access. Admin cross-tenant route is `GET /api/tenant/all/:tenantId/roles`; do not reintroduce duplicate route patterns.
+- `PATCH /api/tenant/:tenantId/roles` is owner or admin only (not staff supervisor).
 
 ## 14. Suggested first tasks for the incoming developer
 
 1. Copy the production environment values into the target server secret manager or `.env`, rotate every existing secret, and verify `pnpm build`.
-2. Run migrations with `npx prisma migrate deploy` and verify seed data only in non-production environments.
-3. Log in as admin, supervisor, manager, server, kitchen, and cashier; verify their Swagger routes return the expected 200/403 responses.
+2. Run migrations with `npx prisma migrate deploy` (or `migrate reset` on non-prod after OWNER cutover) and verify seed data only in non-production environments.
+3. Log in as admin, owner, supervisor, manager, server, kitchen, and cashier; verify their Swagger routes return the expected 200/403 responses.
 4. Test one complete dine-in flow and one direct inventory checkout flow.
 5. Connect a client to `/notifications`, then send an order to kitchen, bump it ready, and complete payment to validate realtime events.
 6. Test subscription checkout using provider test credentials and verify the webhook changes the tenant subscription to `ACTIVE`.

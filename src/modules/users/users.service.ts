@@ -124,12 +124,12 @@ export class UsersService {
       tenantId,
       id,
       dto,
-      ['MANAGER', 'CASHIER', 'SERVER', 'KITCHEN'],
-      'Supervisor',
+      ['MANAGER', 'SUPERVISOR', 'CASHIER', 'SERVER', 'KITCHEN'],
+      'Owner',
     );
   }
 
-  async resetSupervisorCredentials(
+  async resetOwnerCredentials(
     tenantId: string,
     id: string,
     dto: ResetUserCredentialsDto,
@@ -138,9 +138,18 @@ export class UsersService {
       tenantId,
       id,
       dto,
-      ['SUPERVISOR'],
+      ['OWNER'],
       'Admin',
     );
+  }
+
+  /** @deprecated Use resetOwnerCredentials */
+  async resetSupervisorCredentials(
+    tenantId: string,
+    id: string,
+    dto: ResetUserCredentialsDto,
+  ) {
+    return this.resetOwnerCredentials(tenantId, id, dto);
   }
 
   async updateMyProfile(

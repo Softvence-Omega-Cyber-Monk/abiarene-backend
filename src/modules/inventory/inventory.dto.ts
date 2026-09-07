@@ -61,7 +61,7 @@ export class ListInventoryDeletionRequestsDto extends PaginationDto {
 
 export class RejectInventoryDeletionRequestDto {
   @ApiPropertyOptional({
-    description: 'Optional rejection reason for supervisor audit context',
+    description: 'Optional rejection reason for owner/supervisor audit context',
     example: 'Item should remain until month-end stock count is complete.',
   })
   @IsOptional()

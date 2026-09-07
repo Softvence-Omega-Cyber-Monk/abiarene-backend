@@ -113,6 +113,14 @@ export class CreateTenantDto {
   manager?: boolean;
 
   @ApiPropertyOptional({
+    description: 'Create the staff supervisor role for this tenant',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  supervisor?: boolean;
+
+  @ApiPropertyOptional({
     description: 'Create the server role for this tenant',
     default: false,
   })
@@ -232,7 +240,7 @@ export class UpdateTenantRolesDto {
   manager?: boolean;
 
   @ApiPropertyOptional({
-    description: 'Enable the supervisor role for this tenant',
+    description: 'Enable the staff supervisor role for this tenant',
     default: false,
   })
   @IsOptional()

@@ -50,7 +50,7 @@ export class TenantTablesController {
   }
 
   @Post()
-  @Roles('manager', 'supervisor')
+  @Roles('manager', 'supervisor', 'owner')
   @ApiOperation({ summary: 'Create table' })
   @ApiResponse({ status: 201, description: 'Table created' })
   @ApiBody({
@@ -114,7 +114,7 @@ export class TenantTablesController {
   }
 
   @Patch('menu')
-  @Roles('manager', 'supervisor')
+  @Roles('manager', 'supervisor', 'owner')
   @ApiOperation({
     summary:
       'Add new items to the shared menu for all tables under your current tenant',
@@ -132,7 +132,7 @@ export class TenantTablesController {
   }
 
   @Delete('menu/items/:itemId')
-  @Roles('manager', 'supervisor')
+  @Roles('manager', 'supervisor', 'owner')
   @ApiOperation({
     summary: 'Remove one item from the shared menu under your current tenant',
   })
@@ -148,7 +148,7 @@ export class TenantTablesController {
   }
 
   @Get(':id/cashier-summary')
-  @Roles('cashier', 'manager', 'supervisor')
+  @Roles('cashier', 'manager', 'supervisor', 'owner')
   @ApiOperation({
     summary:
       'Get cashier checkout summary for a table under your current tenant',
@@ -165,7 +165,7 @@ export class TenantTablesController {
   }
 
   @Post(':id/cashier-checkout')
-  @Roles('cashier', 'manager', 'supervisor')
+  @Roles('cashier', 'manager', 'supervisor', 'owner')
   @ApiOperation({
     summary: 'Complete cashier checkout for a table under your current tenant',
   })
@@ -205,7 +205,7 @@ export class TenantTablesController {
   }
 
   @Patch(':id')
-  @Roles('server', 'manager', 'supervisor')
+  @Roles('server', 'manager', 'supervisor', 'owner')
   @ApiOperation({ summary: 'Update table by ID' })
   @ApiResponse({ status: 200, description: 'Table updated' })
   @ApiBody({
@@ -246,7 +246,7 @@ export class TenantTablesController {
   }
 
   @Delete(':id')
-  @Roles('manager', 'supervisor')
+  @Roles('manager', 'supervisor', 'owner')
   @ApiOperation({ summary: 'Delete table by ID' })
   @ApiResponse({ status: 200, description: 'Table deleted' })
   delete(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
