@@ -6,12 +6,12 @@
   "private": true,
   "engines": {
     "node": "22.x",
-    "pnpm": ">=9.x"
+    "pnpm": "11.x"
   },
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
-    "build:render": "corepack enable && corepack prepare pnpm@9.15.9 --activate && pnpm install --no-frozen-lockfile && pnpm run prisma:generate && pnpm run build",
+    "build:render": "pnpm install --frozen-lockfile && pnpm run prisma:generate && pnpm run build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -99,12 +99,6 @@
   },
   "prisma": {
     "seed": "node prisma/seed.mjs"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@prisma/engines",
-      "prisma"
-    ]
   },
   "packageManager": "pnpm@11.22.0+sha512.1ff870c4c6133dfd88fb2afc46dd13d47f09c9794b438c6fdb47ca98caf3bc16381ee0be93a091b8e3824cf01f889f46d7d9e20910fb0be1ab0fb5baa80dd621"
 }
