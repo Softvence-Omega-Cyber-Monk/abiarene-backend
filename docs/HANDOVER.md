@@ -18,6 +18,7 @@ Related docs:
 - Roles, decorators, guards, permission matrix: [role.md](./role.md)
 - Role-by-role API playbooks: [workflows/](./workflows/README.md)
 - **Frontend migration (OWNER + staff SUPERVISOR):** [FRONTEND_OWNER_SUPERVISOR_MIGRATION.md](./FRONTEND_OWNER_SUPERVISOR_MIGRATION.md)
+- **SaaS multi-tenant architecture:** [SAAS_ARCHITECTURE.md](./SAAS_ARCHITECTURE.md)
 
 ## 2. Local run
 
