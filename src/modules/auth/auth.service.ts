@@ -6,7 +6,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { RoleName } from '../../common/constants/role-name.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { LoginDto, RegisterSupervisorDto } from './auth.dto.js';
+import { LoginDto, RegisterOwnerDto } from './auth.dto.js';
 
 @Injectable()
 export class AuthService {
@@ -15,7 +15,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async registerSupervisor(dto: RegisterSupervisorDto) {
+  async registerOwner(dto: RegisterOwnerDto) {
     await this.ensureEmailAvailable(dto.email);
 
     const user = await this.prisma.user.create({
@@ -23,7 +23,7 @@ export class AuthService {
         name: dto.name,
         email: dto.email,
         pin: dto.pin,
-        pendingRole: RoleName.SUPERVISOR,
+        pendingRole: RoleName.OWNER,
         status: 'ACTIVE',
       },
     });
@@ -32,7 +32,7 @@ export class AuthService {
       sub: user.id,
       name: user.name,
       email: user.email,
-      role: RoleName.SUPERVISOR,
+      role: RoleName.OWNER,
       tokenVersion: user.tokenVersion,
     };
 

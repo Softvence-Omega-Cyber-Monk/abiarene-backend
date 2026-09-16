@@ -65,13 +65,13 @@ export class TenantPortalController {
 
   @Post('create')
   @AllowWithoutTenant()
-  @Roles('supervisor')
+  @Roles('owner')
   @ApiOperation({
-    summary: 'Create tenant under the current supervisor account',
+    summary: 'Create tenant under the current owner account',
   })
   @ApiResponse({
     status: 201,
-    description: 'Tenant created for the supervisor',
+    description: 'Tenant created for the owner',
   })
   create(
     @CurrentUser() user: AuthUser | undefined,
@@ -81,11 +81,11 @@ export class TenantPortalController {
       throw new UnauthorizedException('Missing user context');
     }
 
-    return this.service.createForSupervisor(user.sub, dto);
+    return this.service.createForOwner(user.sub, dto);
   }
 
   @Get('me')
-  @Roles('manager', 'supervisor', 'server', 'kitchen', 'cashier')
+  @Roles('manager', 'supervisor', 'owner', 'server', 'kitchen', 'cashier')
   @ApiOperation({ summary: 'Get current tenant' })
   @ApiQuery({
     name: 'currency',
@@ -104,7 +104,7 @@ export class TenantPortalController {
   }
 
   @Get('overview')
-  @Roles('manager', 'supervisor')
+  @Roles('manager', 'supervisor', 'owner')
   @ApiOperation({
     summary: 'Get manager overview metrics for the current tenant',
   })
@@ -114,7 +114,7 @@ export class TenantPortalController {
     enum: OVERVIEW_GRAPH_RANGES,
     example: 'daily',
     description:
-      'Overview graph range. Supervisor can use daily, weekly, monthly, quarterly, yearly. Manager can use daily and monthly only.',
+      'Overview graph range. Owner can use daily, weekly, monthly, quarterly, yearly. Manager and supervisor can use daily and monthly only.',
   })
   @ApiQuery({
     name: 'timezone',
@@ -166,24 +166,24 @@ export class TenantPortalController {
     const range = query.range ?? 'daily';
 
     if (
-      role === RoleName.MANAGER &&
+      (role === RoleName.MANAGER || role === RoleName.SUPERVISOR) &&
       !['daily', 'monthly'].includes(range)
     ) {
       throw new ForbiddenException(
-        'Manager can access only daily and monthly sales reports',
+        'Manager and supervisor can access only daily and monthly sales reports',
       );
     }
 
     return this.service.overview(
       this.tenantId(user),
-      role as 'MANAGER' | 'SUPERVISOR',
+      role as 'MANAGER' | 'SUPERVISOR' | 'OWNER',
       range,
       query.timezone,
     );
   }
 
   @Get('daily-sales-history')
-  @Roles('manager', 'supervisor')
+  @Roles('manager', 'supervisor', 'owner')
   @ApiOperation({ summary: 'Get daily sales history for the current tenant' })
   @ApiResponse({ status: 200, description: 'Daily sales history retrieved' })
   @ApiQuery({
@@ -204,7 +204,7 @@ export class TenantPortalController {
   }
 
   @Get('total-transactions')
-  @Roles('manager', 'supervisor')
+  @Roles('manager', 'supervisor', 'owner')
   @ApiOperation({
     summary: 'Get total transaction summary for the current tenant',
   })
@@ -214,7 +214,7 @@ export class TenantPortalController {
   }
 
   @Get('active-discounts')
-  @Roles('manager', 'supervisor')
+  @Roles('manager', 'supervisor', 'owner')
   @ApiOperation({
     summary: 'Get active discount or voucher summary for the current tenant',
   })
@@ -227,7 +227,7 @@ export class TenantPortalController {
   }
 
   @Patch('me')
-  @Roles('manager', 'supervisor')
+  @Roles('manager', 'supervisor', 'owner')
   @ApiOperation({ summary: 'Update current tenant' })
   @ApiResponse({ status: 200, description: 'Current tenant updated' })
   update(
@@ -238,7 +238,7 @@ export class TenantPortalController {
   }
 
   @Get('subscription/me')
-  @Roles('manager', 'supervisor')
+  @Roles('manager', 'supervisor', 'owner')
   @ApiOperation({
     summary: 'Get current tenant subscription status and payment options',
   })
@@ -262,7 +262,7 @@ export class TenantPortalController {
   }
 
   @Get('subscription/vouchers')
-  @Roles('manager', 'supervisor')
+  @Roles('manager', 'supervisor', 'owner')
   @ApiOperation({
     summary: 'List available subscription vouchers for the current tenant',
   })
@@ -272,7 +272,7 @@ export class TenantPortalController {
   }
 
   @Get(':tenantId/roles')
-  @Roles('manager', 'supervisor', 'admin')
+  @Roles('manager', 'supervisor', 'owner', 'admin')
   @ApiOperation({ summary: 'List roles under your own tenant scope' })
   @ApiResponse({ status: 200, description: 'Tenant roles retrieved' })
   @ApiResponse({
@@ -303,7 +303,7 @@ export class TenantPortalController {
   }
 
   @Get('subscription/payments/:reference/status')
-  @Roles('manager', 'supervisor')
+  @Roles('manager', 'supervisor', 'owner')
   @ApiOperation({
     summary: 'Get current tenant subscription payment status by reference',
   })
@@ -322,7 +322,7 @@ export class TenantPortalController {
   }
 
   @Post('subscription/pay')
-  @Roles('manager', 'supervisor')
+  @Roles('manager', 'supervisor', 'owner')
   @ApiOperation({
     summary:
       'Initiate tenant subscription payment for the current manager tenant',

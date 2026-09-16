@@ -49,6 +49,8 @@ pnpm test
 ## Seed Credentials
 
 - Admin: `admin@example.com` / PIN `1234`
+- Owner: `sara.owner@example.com` / PIN `3333`
+- Supervisor (staff): `sam.supervisor@example.com` / PIN `4444`
 - Manager: `alice.manager@example.com` / PIN `1111`
 - Server: `bob.server@example.com` / PIN `2222`
 

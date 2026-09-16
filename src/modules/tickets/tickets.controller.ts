@@ -31,7 +31,7 @@ export class TicketsController {
   }
 
   @Get()
-  @Roles('manager', 'supervisor', 'server', 'kitchen')
+  @Roles('manager', 'supervisor', 'owner', 'server', 'kitchen')
   @ApiOperation({ summary: 'List tickets under your current tenant' })
   @ApiResponse({ status: 200, description: 'Tickets retrieved' })
   @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
@@ -55,7 +55,7 @@ export class TicketsController {
   }
 
   @Get('kitchen-board')
-  @Roles('kitchen', 'manager', 'supervisor')
+  @Roles('kitchen', 'manager', 'supervisor', 'owner')
   @ApiOperation({
     summary:
       'List all active and ready kitchen tickets under your current tenant',
@@ -69,7 +69,7 @@ export class TicketsController {
   }
 
   @Get(':id')
-  @Roles('manager', 'supervisor', 'server', 'kitchen')
+  @Roles('manager', 'supervisor', 'owner', 'server', 'kitchen')
   @ApiOperation({ summary: 'Get ticket by ID under your current tenant' })
   @ApiResponse({ status: 200, description: 'Ticket retrieved' })
   read(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
@@ -77,7 +77,7 @@ export class TicketsController {
   }
 
   @Post(':id/bump-to-ready')
-  @Roles('kitchen', 'manager', 'supervisor', 'cashier')
+  @Roles('kitchen', 'manager', 'supervisor', 'owner', 'cashier')
   @ApiOperation({
     summary: 'Mark a kitchen ticket as ready under your current tenant',
   })
@@ -94,7 +94,7 @@ export class TicketsController {
   }
 
   @Post(':id/force-archive')
-  @Roles('server', 'manager', 'supervisor', 'kitchen', 'cashier')
+  @Roles('server', 'manager', 'supervisor', 'owner', 'kitchen', 'cashier')
   @ApiOperation({
     summary: 'Force archive a kitchen ticket under your current tenant',
   })

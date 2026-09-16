@@ -62,17 +62,17 @@ export class AdminTenantController {
   }
 
   @Patch(':tenantId/roles')
-  @ApiOperation({ summary: 'Enable roles under a tenant for admin or supervisor' })
+  @ApiOperation({ summary: 'Enable roles under a tenant for admin or owner' })
   @ApiResponse({ status: 200, description: 'Tenant roles updated' })
-  @ApiResponse({ status: 403, description: 'This route is for admin or supervisor only' })
+  @ApiResponse({ status: 403, description: 'This route is for admin or owner only' })
   updateRoles(
     @CurrentUser() user: AuthUser | undefined,
     @Param('tenantId') tenantId: string,
     @Body() dto: UpdateTenantRolesDto,
   ) {
     const role = user?.role?.toUpperCase();
-    if (role !== RoleName.ADMIN && role !== RoleName.SUPERVISOR) {
-      throw new ForbiddenException('This route is for admin or supervisor only');
+    if (role !== RoleName.ADMIN && role !== RoleName.OWNER) {
+      throw new ForbiddenException('This route is for admin or owner only');
     }
 
     return this.service.updateRoles(tenantId, dto);

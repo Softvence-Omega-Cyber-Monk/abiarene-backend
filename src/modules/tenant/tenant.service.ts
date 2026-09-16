@@ -17,10 +17,10 @@ import {
   UpdateTenantRolesDto,
   UpdateTenantDto,
 } from './tenant.dto.js';
-import { RoleName } from '../../common/constants/role-name.js';
+import { RoleName, isOwnerRole } from '../../common/constants/role-name.js';
 import { buildPaginatedResponse } from '../../common/utils/pagination.js';
 
-const DEFAULT_TENANT_ROLE = RoleName.SUPERVISOR;
+const DEFAULT_TENANT_ROLE = RoleName.OWNER;
 
 @Injectable()
 export class TenantService {
@@ -267,10 +267,10 @@ export class TenantService {
     }
   }
 
-  private getAllowedOverviewRanges(role: 'MANAGER' | 'SUPERVISOR') {
-    return role === 'MANAGER'
-      ? (['daily', 'monthly'] as const)
-      : (['daily', 'weekly', 'monthly', 'quarterly', 'yearly'] as const);
+  private getAllowedOverviewRanges(role: 'MANAGER' | 'SUPERVISOR' | 'OWNER') {
+    return role === RoleName.OWNER
+      ? (['daily', 'weekly', 'monthly', 'quarterly', 'yearly'] as const)
+      : (['daily', 'monthly'] as const);
   }
 
   private buildOverviewGraph(
@@ -462,7 +462,7 @@ export class TenantService {
     };
   }
 
-  createForSupervisor(userId: string, dto: CreateTenantDto) {
+  createForOwner(userId: string, dto: CreateTenantDto) {
     const roleCreates: Prisma.RoleCreateWithoutTenantInput[] = [
       {
         name: DEFAULT_TENANT_ROLE,
@@ -472,6 +472,10 @@ export class TenantService {
 
     if (dto.manager) {
       roleCreates.push({ name: RoleName.MANAGER, isActive: true });
+    }
+
+    if (dto.supervisor) {
+      roleCreates.push({ name: RoleName.SUPERVISOR, isActive: true });
     }
 
     if (dto.server) {
@@ -488,25 +492,25 @@ export class TenantService {
 
     return this.prisma.$transaction(
       async (tx) => {
-        const supervisor = await tx.user.findFirst({
+        const owner = await tx.user.findFirst({
           where: { id: userId, status: 'ACTIVE' },
           include: { role: true },
         });
 
-        if (!supervisor) {
-          throw new NotFoundException('Supervisor account not found');
+        if (!owner) {
+          throw new NotFoundException('Owner account not found');
         }
 
-        const resolvedRole = supervisor.role?.name ?? supervisor.pendingRole;
-        if (resolvedRole !== RoleName.SUPERVISOR) {
+        const resolvedRole = owner.role?.name ?? owner.pendingRole;
+        if (!isOwnerRole(resolvedRole)) {
           throw new ForbiddenException(
-            'Only a supervisor account can create a tenant',
+            'Only an owner account can create a tenant',
           );
         }
 
-        if (supervisor.tenantId) {
+        if (owner.tenantId) {
           throw new BadRequestException(
-            'This supervisor account is already assigned to a tenant',
+            'This owner account is already assigned to a tenant',
           );
         }
 
@@ -563,20 +567,20 @@ export class TenantService {
           },
         });
 
-        const supervisorRole = tenant.roles.find(
+        const ownerRole = tenant.roles.find(
           (role) => role.name === DEFAULT_TENANT_ROLE,
         );
 
-        if (!supervisorRole) {
+        if (!ownerRole) {
           throw new BadRequestException(
-            'Default supervisor role was not created',
+            'Default owner role was not created',
           );
         }
 
-        const updatedSupervisor = await tx.user.update({
-          where: { id: supervisor.id },
+        const updatedOwner = await tx.user.update({
+          where: { id: owner.id },
           data: {
-            roleId: supervisorRole.id,
+            roleId: ownerRole.id,
             tenantId: tenant.id,
             pendingRole: null,
           },
@@ -587,7 +591,7 @@ export class TenantService {
 
         return {
           ...tenant,
-          supervisor: updatedSupervisor,
+          owner: updatedOwner,
         };
       },
       {
@@ -595,6 +599,11 @@ export class TenantService {
         timeout: 20_000,
       },
     );
+  }
+
+  /** @deprecated Use createForOwner */
+  createForSupervisor(userId: string, dto: CreateTenantDto) {
+    return this.createForOwner(userId, dto);
   }
 
   async listAll(dto: ListTenantDto, displayCurrency?: string) {
@@ -730,7 +739,7 @@ export class TenantService {
 
   async getManagerOverview(
     tenantId: string,
-    role: 'MANAGER' | 'SUPERVISOR',
+    role: 'MANAGER' | 'SUPERVISOR' | 'OWNER',
     range: OverviewGraphRange = 'daily',
     timeZone?: string,
   ) {

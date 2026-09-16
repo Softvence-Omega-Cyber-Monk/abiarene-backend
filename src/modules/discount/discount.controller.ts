@@ -18,15 +18,15 @@ export class DiscountController {
   }
 
   @Post()
-  @Roles('manager', 'supervisor', 'admin')
+  @Roles('manager', 'supervisor', 'owner', 'admin')
   @ApiOperation({ summary: 'Create discount under your current tenant' })
   @ApiResponse({ status: 201, description: 'Discount created' })
   create(@CurrentUser() user: AuthUser | undefined, @Body() dto: CreateDiscountDto) {
-    return this.service.create(this.tenantId(user), dto);
+    return this.service.create(this.tenantId(user), dto, user?.role);
   }
 
   @Get()
-  @Roles('manager', 'supervisor', 'server', 'kitchen', 'cashier', 'admin')
+  @Roles('manager', 'supervisor', 'owner', 'server', 'kitchen', 'cashier', 'admin')
   @ApiOperation({ summary: 'List discounts under your current tenant' })
   @ApiResponse({ status: 200, description: 'Discounts retrieved' })
   @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
@@ -46,7 +46,7 @@ export class DiscountController {
   }
 
   @Get(':id')
-  @Roles('manager', 'supervisor', 'server', 'kitchen', 'cashier', 'admin')
+  @Roles('manager', 'supervisor', 'owner', 'server', 'kitchen', 'cashier', 'admin')
   @ApiOperation({ summary: 'Get discount by ID' })
   @ApiResponse({ status: 200, description: 'Discount retrieved' })
   read(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
@@ -54,15 +54,15 @@ export class DiscountController {
   }
 
   @Patch(':id')
-  @Roles('manager', 'supervisor', 'admin')
+  @Roles('manager', 'supervisor', 'owner', 'admin')
   @ApiOperation({ summary: 'Update discount by ID' })
   @ApiResponse({ status: 200, description: 'Discount updated' })
   update(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string, @Body() dto: UpdateDiscountDto) {
-    return this.service.update(this.tenantId(user), id, dto);
+    return this.service.update(this.tenantId(user), id, dto, user?.role);
   }
 
   @Delete(':id')
-  @Roles('manager', 'supervisor', 'admin')
+  @Roles('supervisor', 'owner', 'admin')
   @ApiOperation({ summary: 'Delete discount by ID' })
   @ApiResponse({ status: 200, description: 'Discount deleted' })
   delete(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {

@@ -57,7 +57,7 @@ export class UsersController {
   }
 
   @Post()
-  @Roles('manager', 'supervisor')
+  @Roles('manager', 'supervisor', 'owner')
   @ApiOperation({ summary: 'Create a user under current tenant' })
   @ApiResponse({ status: 201, description: 'User created' })
   create(
@@ -68,7 +68,7 @@ export class UsersController {
   }
 
   @Get()
-  @Roles('manager', 'supervisor')
+  @Roles('manager', 'supervisor', 'owner')
   @ApiOperation({ summary: 'List users under current tenant' })
   @ApiResponse({ status: 200, description: 'Users retrieved' })
   @ApiQuery({ name: 'page', required: false, type: String, example: '1' })
@@ -87,7 +87,7 @@ export class UsersController {
   }
 
   @Get('me')
-  @Roles('manager', 'supervisor', 'server', 'kitchen', 'cashier')
+  @Roles('manager', 'supervisor', 'owner', 'server', 'kitchen', 'cashier')
   @ApiOperation({ summary: 'Get own profile under current tenant' })
   @ApiResponse({ status: 200, description: 'Own profile retrieved' })
   readMyProfile(@CurrentUser() user: AuthUser | undefined) {
@@ -99,7 +99,7 @@ export class UsersController {
   }
 
   @Patch('me')
-  @Roles('manager', 'supervisor', 'server', 'kitchen', 'cashier')
+  @Roles('manager', 'supervisor', 'owner', 'server', 'kitchen', 'cashier')
   @ApiOperation({ summary: 'Update own profile under current tenant' })
   @ApiResponse({ status: 200, description: 'Own profile updated' })
   updateMyProfile(
@@ -114,7 +114,7 @@ export class UsersController {
   }
 
   @Get(':id')
-  @Roles('manager', 'supervisor')
+  @Roles('manager', 'supervisor', 'owner')
   @ApiOperation({ summary: 'Get user by ID under current tenant' })
   @ApiResponse({ status: 200, description: 'User retrieved' })
   read(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
@@ -122,7 +122,7 @@ export class UsersController {
   }
 
   @Patch(':id')
-  @Roles('manager', 'supervisor')
+  @Roles('manager', 'supervisor', 'owner')
   @ApiOperation({ summary: 'Update user by ID under current tenant' })
   @ApiResponse({ status: 200, description: 'User updated' })
   update(
@@ -139,8 +139,8 @@ export class UsersController {
   }
 
   @Patch(':id/reset-credentials')
-  @Roles('supervisor')
-  @ApiOperation({ summary: 'Supervisor reset manager, cashier, server, or kitchen email and pin under current tenant' })
+  @Roles('owner')
+  @ApiOperation({ summary: 'Owner reset manager, supervisor, cashier, server, or kitchen email and pin under current tenant' })
   @ApiResponse({ status: 200, description: 'User credentials reset' })
   resetStaffCredentials(
     @CurrentUser() user: AuthUser | undefined,
@@ -151,7 +151,7 @@ export class UsersController {
   }
 
   @Delete(':id')
-  @Roles('manager', 'supervisor')
+  @Roles('manager', 'supervisor', 'owner')
   @ApiOperation({ summary: 'Delete user by ID under current tenant' })
   @ApiResponse({ status: 200, description: 'User deleted' })
   delete(@CurrentUser() user: AuthUser | undefined, @Param('id') id: string) {
@@ -197,16 +197,16 @@ export class UsersController {
     return this.usersService.updateForTenant(tenantId, id, dto);
   }
 
-  @Patch('tenant/:tenantId/:id/reset-supervisor-credentials')
+  @Patch('tenant/:tenantId/:id/reset-owner-credentials')
   @Roles('admin')
-  @ApiOperation({ summary: 'Admin reset supervisor email and pin under any tenant' })
-  @ApiResponse({ status: 200, description: 'Supervisor credentials reset' })
-  resetSupervisorCredentials(
+  @ApiOperation({ summary: 'Admin reset owner email and pin under any tenant' })
+  @ApiResponse({ status: 200, description: 'Owner credentials reset' })
+  resetOwnerCredentials(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
     @Body() dto: ResetUserCredentialsDto,
   ) {
-    return this.usersService.resetSupervisorCredentials(tenantId, id, dto);
+    return this.usersService.resetOwnerCredentials(tenantId, id, dto);
   }
 
   @Delete('tenant/:tenantId/:id')

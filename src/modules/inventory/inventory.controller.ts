@@ -52,7 +52,7 @@ export class InventoryController {
   }
 
   @Post()
-  @Roles('manager', 'supervisor', 'admin')
+  @Roles('manager', 'supervisor', 'owner', 'admin')
   @ApiOperation({ summary: 'Create inventory item under your current tenant' })
   @ApiResponse({
     status: 201,
@@ -88,7 +88,7 @@ export class InventoryController {
   }
 
   @Get('stock-alerts')
-  @Roles('manager', 'supervisor')
+  @Roles('manager', 'supervisor', 'owner')
   @ApiOperation({
     summary: 'List low-stock inventory alerts under your current tenant',
   })
@@ -120,7 +120,7 @@ export class InventoryController {
   }
 
   @Get('delete-requests')
-  @Roles('manager', 'supervisor', 'admin')
+  @Roles('manager', 'supervisor', 'owner', 'admin')
   @ApiOperation({
     summary: 'List inventory deletion requests under your current tenant',
   })
@@ -145,7 +145,7 @@ export class InventoryController {
   }
 
   @Post('delete-requests/:requestId/approve')
-  @Roles('supervisor', 'admin')
+  @Roles('owner', 'supervisor', 'admin')
   @ApiOperation({ summary: 'Approve a pending inventory deletion request' })
   @ApiResponse({
     status: 201,
@@ -160,7 +160,7 @@ export class InventoryController {
   }
 
   @Post('delete-requests/:requestId/reject')
-  @Roles('supervisor', 'admin')
+  @Roles('owner', 'supervisor', 'admin')
   @ApiOperation({ summary: 'Reject a pending inventory deletion request' })
   @ApiResponse({
     status: 201,
@@ -188,7 +188,7 @@ export class InventoryController {
   }
 
   @Patch(':id')
-  @Roles('manager', 'supervisor', 'admin')
+  @Roles('manager', 'supervisor', 'owner', 'admin')
   @ApiOperation({ summary: 'Update inventory item by ID' })
   @ApiResponse({ status: 200, description: 'Inventory item updated' })
   update(
@@ -200,9 +200,9 @@ export class InventoryController {
   }
 
   @Delete(':id')
-  @Roles('manager', 'supervisor', 'admin')
+  @Roles('manager', 'supervisor', 'owner', 'admin')
   @ApiOperation({
-    summary: 'Delete inventory item by ID or request supervisor approval',
+    summary: 'Delete inventory item by ID or request owner/supervisor approval',
   })
   @ApiResponse({
     status: 200,

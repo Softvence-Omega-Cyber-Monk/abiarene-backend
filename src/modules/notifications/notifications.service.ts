@@ -45,7 +45,14 @@ export class NotificationsService {
   }
 
   private withLeadershipRoles(roles: RoleName[]) {
-    return [...new Set([...roles, RoleName.MANAGER, RoleName.SUPERVISOR])];
+    return [
+      ...new Set([
+        ...roles,
+        RoleName.MANAGER,
+        RoleName.SUPERVISOR,
+        RoleName.OWNER,
+      ]),
+    ];
   }
 
   private getOrderLabel(input: {
@@ -391,7 +398,7 @@ export class NotificationsService {
   }) {
     await this.notifyUsersByRole({
       tenantId: input.tenantId,
-      roles: [RoleName.SUPERVISOR],
+      roles: [RoleName.OWNER, RoleName.SUPERVISOR],
       type: 'GENERIC',
       title: `Inventory deletion approval needed`,
       message: `${input.requestedByName} requested deletion for ${input.productName}.`,
